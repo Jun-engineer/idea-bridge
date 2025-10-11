@@ -8,6 +8,8 @@ locals {
   project     = var.project_name
   env         = var.environment
   name_prefix = "${local.project}-${local.env}"
+  tf_state_bucket_name = "${local.name_prefix}-tf-state"
+  tf_lock_table_name   = "${local.name_prefix}-tf-locks"
   tags = {
     Project     = local.project
     Environment = local.env
@@ -332,8 +334,8 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     resources = [
       aws_s3_bucket.frontend.arn,
       "${aws_s3_bucket.frontend.arn}/*",
-      "arn:${data.aws_partition.current.partition}:s3:::idea-bridge-prod-tf-state",
-      "arn:${data.aws_partition.current.partition}:s3:::idea-bridge-prod-tf-state/*"
+      "arn:${data.aws_partition.current.partition}:s3:::${local.tf_state_bucket_name}",
+      "arn:${data.aws_partition.current.partition}:s3:::${local.tf_state_bucket_name}/*"
     ]
   }
 
@@ -386,6 +388,20 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     resources = [
       aws_dynamodb_table.app.arn,
       "${aws_dynamodb_table.app.arn}/index/*"
+    ]
+  }
+
+  statement {
+    sid    = "TerraformStateLock"
+    effect = "Allow"
+    actions = [
+      "dynamodb:DescribeTable",
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:DeleteItem"
+    ]
+    resources = [
+      "arn:${data.aws_partition.current.partition}:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${local.tf_lock_table_name}"
     ]
   }
 

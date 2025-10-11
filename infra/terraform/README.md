@@ -18,7 +18,6 @@ This configuration provisions the core AWS resources for the IdeaBridge serverle
    npm run build
    npm prune --omit=dev
    zip -r idea-bridge-backend.zip dist node_modules package.json package-lock.json
-   mv idea-bridge-backend.zip ../infra/idea-bridge-backend.zip
    ```
 
 ## Usage
@@ -43,12 +42,12 @@ This configuration provisions the core AWS resources for the IdeaBridge serverle
 ### `terraform.tfvars` Example
 Create `terraform.tfvars` (not committed) with the sensitive values:
 ```hcl
-jwt_secret             = "super-secret-change-me"
-session_cookie_name    = "idea_bridge_session"
-cors_allowed_origin    = "https://app.example.com"
-lambda_package_path    = "../../infra/idea-bridge-backend.zip"
-aws_sns_sender_id      = "IdeaBridge"
-aws_sns_origination_number = "+81XXXXXXXXXX"
+jwt_secret                  = "super-secret-change-me"
+session_cookie_name         = "idea_bridge_session"
+cors_allowed_origin         = "https://app.example.com"
+lambda_package_path         = "../../backend/idea-bridge-backend.zip"
+aws_sns_sender_id           = "IdeaBridge"
+aws_sns_origination_number  = "+81XXXXXXXXXX"
 aws_sns_monthly_spend_limit = "1"
 ```
 
