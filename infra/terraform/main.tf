@@ -326,6 +326,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     actions = [
       "s3:ListAllMyBuckets",
       "s3:GetBucketLocation",
+      "s3:GetBucketPolicy",
       "s3:GetObject",
       "s3:PutObject",
       "s3:DeleteObject",
@@ -375,6 +376,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     actions = [
       "dynamodb:CreateTable",
       "dynamodb:DescribeTable",
+      "dynamodb:DescribeContinuousBackups",
       "dynamodb:UpdateTable",
       "dynamodb:DeleteTable",
       "dynamodb:Scan",
@@ -408,7 +410,10 @@ data "aws_iam_policy_document" "github_actions_permissions" {
   statement {
     sid       = "SNSSmsPreferences"
     effect    = "Allow"
-    actions   = ["sns:SetSMSAttributes"]
+    actions   = [
+      "sns:SetSMSAttributes",
+      "sns:GetSMSAttributes"
+    ]
     resources = ["*"]
   }
 
@@ -422,6 +427,28 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       variable = "iam:PassedToService"
       values   = ["lambda.amazonaws.com"]
     }
+  }
+
+  statement {
+    sid    = "IamRead"
+    effect = "Allow"
+    actions = [
+      "iam:GetRole",
+      "iam:GetOpenIDConnectProvider"
+    ]
+    resources = [
+      aws_iam_role.lambda.arn,
+      local.github_oidc_provider_arn
+    ]
+  }
+
+  statement {
+    sid    = "LogsRead"
+    effect = "Allow"
+    actions = [
+      "logs:DescribeLogGroups"
+    ]
+    resources = ["*"]
   }
 }
 
