@@ -326,6 +326,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     actions = [
       "s3:ListAllMyBuckets",
       "s3:GetBucketLocation",
+      "s3:GetBucketAcl",
       "s3:GetBucketPolicy",
       "s3:GetObject",
       "s3:PutObject",
@@ -377,6 +378,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "dynamodb:CreateTable",
       "dynamodb:DescribeTable",
       "dynamodb:DescribeContinuousBackups",
+  "dynamodb:DescribeTimeToLive",
       "dynamodb:UpdateTable",
       "dynamodb:DeleteTable",
       "dynamodb:Scan",
@@ -446,9 +448,19 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     sid    = "LogsRead"
     effect = "Allow"
     actions = [
-      "logs:DescribeLogGroups"
+      "logs:DescribeLogGroups",
+      "logs:ListTagsForResource"
     ]
     resources = ["*"]
+  }
+
+  statement {
+    sid    = "IamList"
+    effect = "Allow"
+    actions = [
+      "iam:ListRolePolicies"
+    ]
+    resources = [aws_iam_role.lambda.arn]
   }
 }
 
