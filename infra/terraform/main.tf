@@ -333,6 +333,11 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "s3:GetBucketVersioning",
   "s3:GetBucketLogging",
   "s3:GetLifecycleConfiguration",
+  "s3:GetReplicationConfiguration",
+  "s3:GetEncryptionConfiguration",
+  "s3:GetBucketObjectLockConfiguration",
+  "s3:GetBucketTagging",
+  "s3:GetBucketPublicAccessBlock",
       "s3:GetAccelerateConfiguration",
       "s3:GetBucketRequestPayment",
       "s3:GetObject",
@@ -353,6 +358,21 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     effect    = "Allow"
     actions   = ["cloudfront:CreateInvalidation"]
     resources = ["arn:${data.aws_partition.current.partition}:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${aws_cloudfront_distribution.frontend.id}"]
+  }
+
+  statement {
+    sid    = "CloudFrontRead"
+    effect = "Allow"
+    actions = [
+      "cloudfront:GetCloudFrontOriginAccessIdentity",
+      "cloudfront:GetDistribution",
+      "cloudfront:GetDistributionConfig",
+      "cloudfront:ListTagsForResource"
+    ]
+    resources = [
+      "arn:${data.aws_partition.current.partition}:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${aws_cloudfront_distribution.frontend.id}",
+      "arn:${data.aws_partition.current.partition}:cloudfront::${data.aws_caller_identity.current.account_id}:origin-access-identity/${aws_cloudfront_origin_access_identity.frontend.id}"
+    ]
   }
 
   statement {
@@ -448,12 +468,18 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     actions = [
       "iam:GetRole",
       "iam:GetRolePolicy",
-      "iam:GetOpenIDConnectProvider"
+      "iam:GetOpenIDConnectProvider",
+      "iam:GetPolicy",
+      "iam:GetPolicyVersion",
+      "iam:ListPolicyVersions",
+      "iam:DeletePolicyVersion",
+      "iam:CreatePolicyVersion"
     ]
     resources = [
       aws_iam_role.lambda.arn,
       aws_iam_role.github_actions.arn,
-      local.github_oidc_provider_arn
+      local.github_oidc_provider_arn,
+      "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:policy/${local.name_prefix}-github-actions"
     ]
   }
 
