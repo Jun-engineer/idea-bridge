@@ -49,4 +49,4 @@ mobile/.expo-shared/
 !**/*.tfvars.example
 
 # Lambda artifacts
-infra/**/idea-bridge-backend.zip
+**/idea-bridge-backend.zip
