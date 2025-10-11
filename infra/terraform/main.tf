@@ -328,6 +328,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "s3:GetBucketLocation",
       "s3:GetBucketAcl",
       "s3:GetBucketPolicy",
+  "s3:GetBucketCors",
       "s3:GetObject",
       "s3:PutObject",
       "s3:DeleteObject",
@@ -379,6 +380,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "dynamodb:DescribeTable",
       "dynamodb:DescribeContinuousBackups",
   "dynamodb:DescribeTimeToLive",
+  "dynamodb:ListTagsOfResource",
       "dynamodb:UpdateTable",
       "dynamodb:DeleteTable",
       "dynamodb:Scan",
@@ -436,10 +438,12 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     effect = "Allow"
     actions = [
       "iam:GetRole",
+      "iam:GetRolePolicy",
       "iam:GetOpenIDConnectProvider"
     ]
     resources = [
       aws_iam_role.lambda.arn,
+      aws_iam_role.github_actions.arn,
       local.github_oidc_provider_arn
     ]
   }
@@ -460,7 +464,10 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     actions = [
       "iam:ListRolePolicies"
     ]
-    resources = [aws_iam_role.lambda.arn]
+    resources = [
+      aws_iam_role.lambda.arn,
+      aws_iam_role.github_actions.arn
+    ]
   }
 }
 
