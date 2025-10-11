@@ -39,6 +39,21 @@ This configuration provisions the core AWS resources for the IdeaBridge serverle
    terraform apply
    ```
 
+### One-command helper
+
+For faster local iteration, use the helper script which packages the backend
+Lambda and runs Terraform:
+
+```bash
+cd infra/terraform
+./apply-local.sh
+```
+
+The script will prompt for `JWT_SECRET` if the environment variable is unset.
+Supply `--plan-only` to skip the final apply, `--skip-build` if you already have
+an up-to-date `backend/idea-bridge-backend.zip`, and `--reconfigure` to pass
+`-reconfigure` to `terraform init`.
+
 ### `terraform.tfvars` Example
 Create `terraform.tfvars` (not committed) with the sensitive values:
 ```hcl
