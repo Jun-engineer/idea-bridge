@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model IdeaCreatorProfile {
+  id         String     @id @default(cuid())
+  username   String     @unique
+  bio        String?
+  avatarUrl  String?
+  ideas      Idea[]
+  likedIdeas IdeaLike[] @relation("ProfileLikes")
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model DeveloperProfile {
+  id              String          @id @default(cuid())
+  username        String          @unique
+  bio             String?
+  avatarUrl       String?
+  portfolioUrl    String?
+  apps            AppSubmission[]
+  stats           DeveloperStats?
+  bookmarkedIdeas Bookmark[]     @relation("DeveloperBookmarks")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model DeveloperStats {
+  id             Int               @id @default(autoincrement())
+  developer      DeveloperProfile  @relation(fields: [developerId], references: [id])
+  developerId    String            @unique
+  appsSubmitted  Int               @default(0)
+  totalLikes     Int               @default(0)
+  totalViews     Int               @default(0)
+  lastSubmission DateTime?
+}
+
+model Idea {
+  id           String             @id @default(cuid())
+  title        String
+  description  String
+  tags         String[]
+  creator      IdeaCreatorProfile @relation(fields: [creatorId], references: [id])
+  creatorId    String
+  submissions  AppSubmission[]
+  likedBy      IdeaLike[]         @relation("IdeaLikes")
+  bookmarkedBy Bookmark[]         @relation("IdeaBookmarks")
+  likes        Int                @default(0)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
+model AppSubmission {
+  id           String           @id @default(cuid())
+  title        String
+  description  String
+  url          String
+  idea         Idea             @relation(fields: [ideaId], references: [id])
+  ideaId       String
+  developer    DeveloperProfile @relation(fields: [developerId], references: [id])
+  developerId  String
+  screenshots  Screenshot[]
+  likes        Int              @default(0)
+  views        Int              @default(0)
+  submittedAt  DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}
+
+model Screenshot {
+  id         Int          @id @default(autoincrement())
+  url        String
+  submission AppSubmission @relation(fields: [submissionId], references: [id])
+  submissionId String
+  createdAt  DateTime      @default(now())
+}
+
+model IdeaLike {
+  id        Int                  @id @default(autoincrement())
+  idea      Idea                 @relation("IdeaLikes", fields: [ideaId], references: [id])
+  ideaId    String
+  profile   IdeaCreatorProfile?  @relation("ProfileLikes", fields: [profileId], references: [id])
+  profileId String?
+  createdAt DateTime             @default(now())
+}
+
+model Bookmark {
+  id          Int               @id @default(autoincrement())
+  idea        Idea              @relation("IdeaBookmarks", fields: [ideaId], references: [id])
+  ideaId      String
+  developer   DeveloperProfile  @relation("DeveloperBookmarks", fields: [developerId], references: [id])
+  developerId String
+  createdAt   DateTime          @default(now())
+}

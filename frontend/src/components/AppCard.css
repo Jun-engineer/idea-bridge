@@ -1,0 +1,44 @@
+.app-card {
+  background: rgba(15, 22, 35, 0.9);
+  border: 1px solid rgba(255, 128, 171, 0.2);
+  border-radius: 14px;
+  padding: 1.25rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.app-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.app-card__meta {
+  font-size: 0.85rem;
+  color: #9fb2d7;
+}
+
+.app-card__meta span {
+  font-weight: 600;
+}
+
+.app-card__likes {
+  color: #ff80ab;
+  font-weight: 600;
+}
+
+.app-card__description {
+  color: #d4ddf3;
+  line-height: 1.5;
+}
+
+.app-card__link {
+  color: #ff8bcb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.app-card__link:hover {
+  text-decoration: underline;
+}

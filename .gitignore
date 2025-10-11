@@ -1,0 +1,42 @@
+# Node dependencies
+node_modules/
+
+# Build outputs
+dist/
+backend/dist/
+frontend/dist/
+mobile/.expo/
+mobile/dist/
+
+# Logs and runtime artifacts
+.idea-bridge/logs/
+logs/
+*.log
+
+# Environment files
+.env
+*.env
+backend/.env
+frontend/.env
+mobile/.env
+
+# Temporary files
+.DS_Store
+Thumbs.db
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Coverage
+coverage/
+
+# Expo / React Native caches
+mobile/.expo-shared/
+.expo/
+
+# VS Code
+.vscode/
