@@ -91,22 +91,32 @@ EXPO_PUBLIC_API_BASE_URL=http://localhost:4000 npm start
 - The mobile client bundles demo data so the UI still works when the API is offline.
 
 ## Authentication & Verification
-- Registration and login now issue short-lived session tokens backed by HTTP-only cookies.
-- New accounts must confirm either their email address or a phone number via one-time code before accessing the app.
+- Registration and login issue short-lived session tokens backed by HTTP-only cookies.
+- New accounts must confirm a phone number via one-time SMS code before accessing the app.
 - Session recovery happens automatically when a valid session cookie is present; otherwise users are redirected to the verification screen.
-- Account settings exposes verification status, allows updating the phone number, and lets users trigger fresh email/SMS codes.
+- Account settings exposes verification status, allows updating the phone number, and lets users trigger fresh SMS codes.
 - Configure verification behaviour with the following env vars (defaults shown in `backend/.env.example`):
   - `VERIFICATION_CODE_LENGTH`
   - `VERIFICATION_CODE_TTL_SECONDS`
   - `VERIFICATION_RESEND_COOLDOWN_SECONDS`
   - `VERIFICATION_MAX_ATTEMPTS`
   - `VERIFICATION_LOGGING_ENABLED`
+  - Amazon SNS settings (for SMS delivery):
+    - `AWS_REGION`
+    - `AWS_ACCESS_KEY_ID`
+    - `AWS_SECRET_ACCESS_KEY`
+    - `AWS_SESSION_TOKEN` (optional for temporary credentials)
+    - `AWS_SNS_SENDER_ID`
+    - `AWS_SNS_ORIGINATION_NUMBER`
+    - `AWS_SNS_SMS_TYPE`
+    - Without these values, the backend logs verification codes but does not send SMS messages.
 
 ## Next steps
 - Connect backend routes to the Prisma client once the database is provisioned.
 - Replace mock data in both frontend and backend with real API calls.
 - Expand verification to persist to the real database and send codes through production email/SMS providers.
 - Add real-time notifications or email updates when submissions land.
+- Explore the [AWS serverless deployment guide](docs/serverless-deployment.md) to run the stack on Lambda, API Gateway, S3, and CloudFront without managing servers or VPCs.
 
 ## Design notes
 This repository follows the attached IdeaBridge product document: permanent idea listings, app submissions tied to ideas, distinct creator/developer profiles, and optional statistics. The current scaffolds keep the scope light while leaving clear seams for future expansion.

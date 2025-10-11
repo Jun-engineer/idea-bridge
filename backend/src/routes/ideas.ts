@@ -48,7 +48,7 @@ router.get("/:ideaId", (req: Request, res: Response) => {
   return res.json({ idea: serializeIdea(idea), submissions });
 });
 
-router.post("/", requireAuth, (req: Request, res: Response) => {
+router.post("/", requireAuth, async (req: Request, res: Response) => {
   const parseResult = createIdeaSchema.safeParse(req.body);
   if (!parseResult.success) {
     return res.status(400).json({ errors: parseResult.error.flatten() });
@@ -71,8 +71,10 @@ router.post("/", requireAuth, (req: Request, res: Response) => {
       retryAfterSeconds: Math.ceil(rateResult.retryAfterMs / 1000),
     });
   }
-  const users = listUsers();
-  const userCreator = users.find((candidate) => candidate.id === creatorId && userCanActAsRole(candidate, "idea-creator"));
+  const users = await listUsers();
+  const userCreator = users.find(
+    (candidate) => candidate.id === creatorId && userCanActAsRole(candidate, "idea-creator"),
+  );
   const creator = db.profiles.ideaCreators.find((profile) => profile.id === creatorId);
 
   if (!userCreator && !creator) {

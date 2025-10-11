@@ -38,7 +38,7 @@ router.get("/", (_req: Request, res: Response) => {
   res.json({ submissions: db.appSubmissions.map(serializeAppSubmission) });
 });
 
-router.post("/", requireAuth, (req: Request, res: Response) => {
+router.post("/", requireAuth, async (req: Request, res: Response) => {
   const parseResult = createSubmissionSchema.safeParse(req.body);
   if (!parseResult.success) {
     return res.status(400).json({ errors: parseResult.error.flatten() });
@@ -66,8 +66,10 @@ router.post("/", requireAuth, (req: Request, res: Response) => {
     return res.status(404).json({ message: "Idea not found" });
   }
 
-  const users = listUsers();
-  const userDeveloper = users.find((candidate) => candidate.id === developerId && userCanActAsRole(candidate, "developer"));
+  const users = await listUsers();
+  const userDeveloper = users.find(
+    (candidate) => candidate.id === developerId && userCanActAsRole(candidate, "developer"),
+  );
   const developer = db.profiles.developers.find((profile) => profile.id === developerId);
   if (!userDeveloper && !developer) {
     return res.status(404).json({ message: "Developer profile not found" });

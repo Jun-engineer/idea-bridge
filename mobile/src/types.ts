@@ -42,3 +42,32 @@ export interface DeveloperProfile extends UserProfileSummary {
   apps: AppSubmission[];
   totalLikes?: number;
 }
+
+export type VerificationMethod = "phone";
+
+export interface VerificationChallenge {
+  requestId: string;
+  method: VerificationMethod;
+  maskedDestination: string;
+  expiresAt: string;
+  resendAvailableAt: string;
+  attemptsRemaining: number;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  displayName: string;
+  bio: string | null;
+  preferredRole: UserRole | null;
+  createdAt: string;
+  updatedAt: string;
+  roleChangeEligibleAt: string;
+  phoneNumber: string | null;
+  phoneVerified: boolean;
+  pendingVerificationMethod: VerificationMethod | null;
+}
+
+export type AuthResult =
+  | { status: "authenticated"; user: AuthUser; token: string | null }
+  | { status: "verification_required"; verification: VerificationChallenge };

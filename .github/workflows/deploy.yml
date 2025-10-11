@@ -1,0 +1,140 @@
+name: Deploy IdeaBridge
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-northeast-1
+  TF_WORKING_DIR: infra/terraform
+
+jobs:
+  backend:
+    name: Build & Provision Backend
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      api_gateway_endpoint: ${{ steps.tf_outputs.outputs.api_gateway_endpoint }}
+      frontend_bucket_name: ${{ steps.tf_outputs.outputs.frontend_bucket_name }}
+      cloudfront_distribution_id: ${{ steps.tf_outputs.outputs.cloudfront_distribution_id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Build backend
+        working-directory: backend
+        run: npm run build
+
+      - name: Strip dev dependencies
+        working-directory: backend
+        run: npm prune --omit=dev
+
+      - name: Package Lambda artifact
+        working-directory: backend
+        run: zip -r idea-bridge-backend.zip dist node_modules package.json package-lock.json
+
+      - name: Generate Terraform variables
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          cat <<'EOF' > terraform.auto.tfvars
+          jwt_secret = "${{ secrets.JWT_SECRET }}"
+          session_cookie_name = "${{ secrets.SESSION_COOKIE_NAME }}"
+          cors_allowed_origin = "${{ secrets.CORS_ALLOWED_ORIGIN }}"
+          aws_sns_sender_id = "${{ secrets.AWS_SNS_SENDER_ID }}"
+          aws_sns_origination_number = "${{ secrets.AWS_SNS_ORIGINATION_NUMBER }}"
+          aws_sns_sms_type = "${{ secrets.AWS_SNS_SMS_TYPE }}"
+          aws_sns_monthly_spend_limit = "${{ secrets.AWS_SNS_MONTHLY_SPEND_LIMIT }}"
+          verification_code_ttl = 600
+          verification_resend_cooldown = 60
+          verification_max_attempts = 5
+          EOF
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init -input=false
+
+      - name: Terraform validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform validate
+
+      - name: Terraform plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform plan -out=tfplan
+
+      - name: Terraform apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -input=false tfplan
+
+      - name: Capture Terraform outputs
+        id: tf_outputs
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          outputs=$(terraform output -json)
+          echo "$outputs" | jq -r '.api_gateway_endpoint.value' > ../api-gateway.txt
+          echo "$outputs" | jq -r '.frontend_bucket_name.value' > ../frontend-bucket.txt
+          echo "$outputs" | jq -r '.cloudfront_distribution_id.value' > ../cloudfront-id.txt
+          echo "api_gateway_endpoint=$(cat ../api-gateway.txt)" >> "$GITHUB_OUTPUT"
+          echo "frontend_bucket_name=$(cat ../frontend-bucket.txt)" >> "$GITHUB_OUTPUT"
+          echo "cloudfront_distribution_id=$(cat ../cloudfront-id.txt)" >> "$GITHUB_OUTPUT"
+
+  frontend:
+    name: Deploy Frontend
+    needs: backend
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: ${{ needs.backend.outputs.api_gateway_endpoint }}
+        run: npm run build
+
+      - name: Sync assets to S3
+        working-directory: frontend
+        run: aws s3 sync dist/ s3://${{ needs.backend.outputs.frontend_bucket_name }}/ --delete
+
+      - name: Invalidate CloudFront cache
+        run: aws cloudfront create-invalidation --distribution-id ${{ needs.backend.outputs.cloudfront_distribution_id }} --paths '/*'

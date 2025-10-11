@@ -15,7 +15,7 @@ import {
 import type { User } from "../types";
 import { requireAuth } from "../middleware/auth";
 import { signAccessToken } from "../utils/jwt";
-import { maskEmail, maskPhone } from "../utils/masking";
+import { maskPhone } from "../utils/masking";
 import {
   clearVerificationForUser,
   consumeVerificationCode,
@@ -23,15 +23,13 @@ import {
   getRequest,
   regenerateVerificationRequest,
   toChallengePayload,
-  type VerificationMethod,
 } from "../data/verificationStore";
-import { sendEmailVerification, sendSmsVerification } from "../services/notification";
+import { sendSmsVerification } from "../services/notification";
 
 const router = Router();
 const roleChangeCooldownMs = config.roleChangeCooldownSeconds * 1000;
 
 const roleEnum = z.enum(["idea-creator", "developer"]);
-const verificationMethodEnum = z.enum(["email", "phone"]);
 const phoneNumberRegex = /^[+0-9()\s-]{7,20}$/;
 
 const registerSchema = z.object({
@@ -40,20 +38,10 @@ const registerSchema = z.object({
   displayName: z.string().min(2).max(80),
   bio: z.string().max(500).optional(),
   preferredRole: roleEnum,
-  verificationMethod: verificationMethodEnum,
   phoneNumber: z
     .string()
     .trim()
-    .regex(phoneNumberRegex, "Enter a valid phone number")
-    .optional(),
-}).superRefine((data, ctx) => {
-  if (data.verificationMethod === "phone" && !data.phoneNumber) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["phoneNumber"],
-      message: "Phone number is required for SMS verification",
-    });
-  }
+    .regex(phoneNumberRegex, "Enter a valid phone number"),
 });
 
 const loginSchema = z.object({
@@ -84,7 +72,6 @@ const verificationConfirmSchema = z.object({
 });
 
 const verificationStartSchema = z.object({
-  method: verificationMethodEnum,
   phoneNumber: z
     .string()
     .trim()
@@ -102,7 +89,6 @@ function sanitizeUser(user: User) {
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     roleChangeEligibleAt: user.roleChangeEligibleAt,
-    emailVerified: user.emailVerified,
     phoneNumber: user.phoneNumber ?? null,
     phoneVerified: user.phoneVerified,
     pendingVerificationMethod: user.pendingVerificationMethod,
@@ -128,8 +114,8 @@ function clearSessionCookie(res: Response) {
   });
 }
 
-function buildAuthenticatedResponse(res: Response, user: User) {
-  const session = createSession(user.id);
+async function buildAuthenticatedResponse(res: Response, user: User) {
+  const session = await createSession(user.id);
   const token = signAccessToken(user.id, session.id);
   setSessionCookie(res, token);
   return {
@@ -139,24 +125,20 @@ function buildAuthenticatedResponse(res: Response, user: User) {
   };
 }
 
-async function issueVerificationChallenge(user: User, method: VerificationMethod) {
-  const destination = method === "email" ? user.email : user.phoneNumber;
+async function issuePhoneVerification(user: User) {
+  const destination = user.phoneNumber;
   if (!destination) {
-    throw new Error(`No ${method} destination available for verification`);
+    throw new Error("No phone number available for verification");
   }
-  const masked = method === "email" ? maskEmail(destination) : maskPhone(destination);
-  const request = createVerificationRequest({
+  const masked = maskPhone(destination);
+  const request = await createVerificationRequest({
     userId: user.id,
-    method,
+    method: "phone",
     destination,
     maskedDestination: masked,
   });
 
-  if (method === "email") {
-    await sendEmailVerification(destination, request.code);
-  } else {
-    await sendSmsVerification(destination, request.code);
-  }
+  await sendSmsVerification(destination, request.code);
 
   return toChallengePayload(request);
 }
@@ -167,20 +149,15 @@ router.post("/register", async (req, res) => {
     return res.status(400).json({ errors: parseResult.error.flatten() });
   }
 
-  const { email, password, displayName, bio, preferredRole, verificationMethod } = parseResult.data;
-  const phoneNumberRaw = parseResult.data.phoneNumber?.trim();
-  const normalizedPhone = phoneNumberRaw?.replace(/\s+/g, "");
-  const existing = getUserByEmail(email);
+  const { email, password, displayName, bio, preferredRole, phoneNumber } = parseResult.data;
+  const normalizedPhone = phoneNumber.replace(/\s+/g, "");
+  const existing = await getUserByEmail(email);
   if (existing && !existing.deletedAt) {
     return res.status(409).json({ message: "An account with that email already exists" });
   }
 
   const passwordHash = await argon2.hash(password);
   const roleChangeEligibleAt = new Date(Date.now() + roleChangeCooldownMs).toISOString();
-
-  if (verificationMethod === "phone" && !normalizedPhone) {
-    return res.status(400).json({ message: "Phone number required for SMS verification" });
-  }
 
   const user = await createUser({
     email,
@@ -189,14 +166,13 @@ router.post("/register", async (req, res) => {
     bio,
     preferredRole,
     roleChangeEligibleAt,
-    emailVerified: false,
     phoneNumber: normalizedPhone,
     phoneVerified: false,
-    pendingVerificationMethod: verificationMethod,
+    pendingVerificationMethod: "phone",
   });
 
   try {
-    const challenge = await issueVerificationChallenge(user, verificationMethod);
+    const challenge = await issuePhoneVerification(user);
     return res.status(201).json({
       status: "verification_required",
       verification: challenge,
@@ -214,7 +190,7 @@ router.post("/login", async (req, res) => {
   }
 
   const { email, password } = parseResult.data;
-  const user = getUserByEmail(email);
+  const user = await getUserByEmail(email);
   if (!user || user.deletedAt) {
     return res.status(401).json({ message: "Invalid email or password" });
   }
@@ -224,9 +200,9 @@ router.post("/login", async (req, res) => {
     return res.status(401).json({ message: "Invalid email or password" });
   }
 
-  if (user.pendingVerificationMethod) {
+  if (user.pendingVerificationMethod === "phone") {
     try {
-      const challenge = await issueVerificationChallenge(user, user.pendingVerificationMethod);
+      const challenge = await issuePhoneVerification(user);
       return res.json({ status: "verification_required", verification: challenge });
     } catch (err) {
       console.error("Failed to dispatch verification challenge", err);
@@ -234,13 +210,13 @@ router.post("/login", async (req, res) => {
     }
   }
 
-  const responseBody = buildAuthenticatedResponse(res, user);
+  const responseBody = await buildAuthenticatedResponse(res, user);
   return res.json(responseBody);
 });
 
-router.post("/logout", requireAuth, (req, res) => {
+router.post("/logout", requireAuth, async (req, res) => {
   if (req.authSession) {
-    destroySession(req.authSession.id);
+    await destroySession(req.authSession.id);
   }
   clearSessionCookie(res);
   return res.json({ success: true });
@@ -253,13 +229,13 @@ router.get("/me", (req, res) => {
   return res.json({ user: sanitizeUser(req.authUser) });
 });
 
-router.get("/verification/:requestId", (req, res) => {
+router.get("/verification/:requestId", async (req, res) => {
   const parseResult = verificationLookupSchema.safeParse({ requestId: req.params.requestId });
   if (!parseResult.success) {
     return res.status(400).json({ errors: parseResult.error.flatten() });
   }
 
-  const request = getRequest(parseResult.data.requestId);
+  const request = await getRequest(parseResult.data.requestId);
   if (!request) {
     return res.status(404).json({ message: "Verification request not found" });
   }
@@ -274,7 +250,7 @@ router.post("/verification/request", async (req, res) => {
   }
 
   const { requestId } = parseResult.data;
-  const request = getRequest(requestId);
+  const request = await getRequest(requestId);
   if (!request) {
     return res.status(404).json({ message: "Verification request not found" });
   }
@@ -289,23 +265,19 @@ router.post("/verification/request", async (req, res) => {
     });
   }
 
-  const refreshed = regenerateVerificationRequest(requestId);
+  const refreshed = await regenerateVerificationRequest(requestId);
   if (!refreshed) {
     return res.status(404).json({ message: "Verification request not found" });
   }
 
-  const user = getUserById(refreshed.userId);
+  const user = await getUserById(refreshed.userId);
   if (!user || user.deletedAt) {
-    clearVerificationForUser(refreshed.userId, refreshed.method);
+    await clearVerificationForUser(refreshed.userId, refreshed.method);
     return res.status(404).json({ message: "Verification request not found" });
   }
 
   try {
-    if (refreshed.method === "email") {
-      await sendEmailVerification(refreshed.destination, refreshed.code);
-    } else {
-      await sendSmsVerification(refreshed.destination, refreshed.code);
-    }
+    await sendSmsVerification(refreshed.destination, refreshed.code);
   } catch (err) {
     console.error("Failed to resend verification challenge", err);
     return res.status(500).json({ message: "Failed to resend verification" });
@@ -320,25 +292,21 @@ router.post("/verification/start", requireAuth, async (req, res) => {
     return res.status(400).json({ errors: parseResult.error.flatten() });
   }
 
-  const { method } = parseResult.data;
   const phoneNumberInput = parseResult.data.phoneNumber?.trim();
   const currentUser = req.authUser!;
-  const phoneNumber = method === "phone" ? phoneNumberInput ?? currentUser.phoneNumber : undefined;
+  const phoneNumber = (phoneNumberInput ?? currentUser.phoneNumber ?? "").replace(/\s+/g, "");
 
-  if (method === "phone" && !phoneNumber) {
+  if (!phoneNumber) {
     return res.status(400).json({ message: "Phone number is required for SMS verification" });
   }
 
   const patch: Parameters<typeof updateUser>[1] = {
-    pendingVerificationMethod: method,
+    pendingVerificationMethod: "phone",
+    phoneNumber,
+    phoneVerified: false,
   };
 
-  if (method === "phone" && phoneNumber !== undefined) {
-    patch.phoneNumber = phoneNumber;
-    patch.phoneVerified = false;
-  }
-
-  const updatedUser = updateUser(currentUser.id, patch);
+  const updatedUser = await updateUser(currentUser.id, patch);
   if (!updatedUser) {
     return res.status(404).json({ message: "User not found" });
   }
@@ -346,7 +314,7 @@ router.post("/verification/start", requireAuth, async (req, res) => {
   req.authUser = updatedUser;
 
   try {
-    const challenge = await issueVerificationChallenge(updatedUser, method);
+    const challenge = await issuePhoneVerification(updatedUser);
     return res.json({ status: "verification_required", verification: challenge });
   } catch (err) {
     console.error("Failed to start verification challenge", err);
@@ -361,7 +329,7 @@ router.post("/verification/confirm", async (req, res) => {
   }
 
   const { requestId, code } = parseResult.data;
-  const result = consumeVerificationCode(requestId, code);
+  const result = await consumeVerificationCode(requestId, code);
 
   if (!result.success) {
     if (result.reason === "expired") {
@@ -379,7 +347,7 @@ router.post("/verification/confirm", async (req, res) => {
   }
 
   const request = result.request!;
-  const user = getUserById(request.userId);
+  const user = await getUserById(request.userId);
   if (!user || user.deletedAt) {
     return res.status(404).json({ message: "User not found" });
   }
@@ -387,22 +355,21 @@ router.post("/verification/confirm", async (req, res) => {
   const patch: Parameters<typeof updateUser>[1] = {
     pendingVerificationMethod:
       user.pendingVerificationMethod === request.method ? null : undefined,
-    emailVerified: request.method === "email" ? true : undefined,
-    phoneVerified: request.method === "phone" ? true : undefined,
+    phoneVerified: true,
   };
 
-  const updatedUser = updateUser(user.id, patch);
+  const updatedUser = await updateUser(user.id, patch);
   if (!updatedUser) {
     return res.status(404).json({ message: "User not found" });
   }
 
-  clearVerificationForUser(updatedUser.id, request.method);
+  await clearVerificationForUser(updatedUser.id, request.method);
 
-  const responseBody = buildAuthenticatedResponse(res, updatedUser);
+  const responseBody = await buildAuthenticatedResponse(res, updatedUser);
   return res.json(responseBody);
 });
 
-router.put("/me", requireAuth, (req, res) => {
+router.put("/me", requireAuth, async (req, res) => {
   const parseResult = updateSchema.safeParse(req.body);
   if (!parseResult.success) {
     return res.status(400).json({ errors: parseResult.error.flatten() });
@@ -456,7 +423,7 @@ router.put("/me", requireAuth, (req, res) => {
     }
   }
 
-  const user = updateUser(currentUser.id, patch);
+  const user = await updateUser(currentUser.id, patch);
 
   if (!user) {
     return res.status(404).json({ message: "User not found" });
@@ -467,10 +434,10 @@ router.put("/me", requireAuth, (req, res) => {
   return res.json({ user: sanitizeUser(user) });
 });
 
-router.delete("/me", requireAuth, (req, res) => {
-  const user = softDeleteUser(req.authUser!.id);
+router.delete("/me", requireAuth, async (req, res) => {
+  const user = await softDeleteUser(req.authUser!.id);
   if (user) {
-    destroyAllSessionsForUser(user.id);
+    await destroyAllSessionsForUser(user.id);
   }
   clearSessionCookie(res);
   return res.status(204).send();

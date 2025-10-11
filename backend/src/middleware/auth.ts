@@ -16,26 +16,28 @@ function extractToken(req: Request): string | null {
 }
 
 export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
-  const token = extractToken(req);
-  if (!token) {
+  (async () => {
+    const token = extractToken(req);
+    if (!token) {
+      return next();
+    }
+    const payload = verifyAccessToken(token);
+    if (!payload) {
+      return next();
+    }
+    const session = await getSession(payload.sid);
+    if (!session) {
+      return next();
+    }
+    const user = await getUserById(payload.sub);
+    if (!user || user.deletedAt) {
+      await destroySession(session.id);
+      return next();
+    }
+    req.authUser = user;
+    req.authSession = session;
     return next();
-  }
-  const payload = verifyAccessToken(token);
-  if (!payload) {
-    return next();
-  }
-  const session = getSession(payload.sid);
-  if (!session) {
-    return next();
-  }
-  const user = getUserById(payload.sub);
-  if (!user || user.deletedAt) {
-    destroySession(session.id);
-    return next();
-  }
-  req.authUser = user;
-  req.authSession = session;
-  return next();
+  })().catch((err) => next(err));
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {

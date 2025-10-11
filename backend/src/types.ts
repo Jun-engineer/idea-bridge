@@ -54,10 +54,9 @@ export interface User {
   updatedAt: string;
   deletedAt?: string | null;
   roleChangeEligibleAt: string;
-  emailVerified: boolean;
   phoneNumber?: string;
   phoneVerified: boolean;
-  pendingVerificationMethod: "email" | "phone" | null;
+  pendingVerificationMethod: "phone" | null;
 }
 
 export interface Session {

@@ -18,10 +18,12 @@ import { listIdeaCreators } from "../api/profiles";
 import type { IdeaCreatorProfile } from "../types";
 import { mockIdeaCreators } from "../mocks";
 import type { RootStackParamList } from "../navigation/types";
+import { useAuth } from "../context/AuthContext";
 
 interface SubmitIdeaScreenProps extends NativeStackScreenProps<RootStackParamList, "SubmitIdea"> {}
 
 const SubmitIdeaScreen = ({ navigation }: SubmitIdeaScreenProps) => {
+  const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [tagsText, setTagsText] = useState("");
@@ -32,13 +34,21 @@ const SubmitIdeaScreen = ({ navigation }: SubmitIdeaScreenProps) => {
   const [error, setError] = useState<string | null>(null);
 
   const loadCreators = useCallback(async () => {
+    if (!user) {
+      setCreators([]);
+      setCreatorId(undefined);
+      setError("Sign in to load your idea creator profile.");
+      setLoadingProfiles(false);
+      return;
+    }
+
     try {
       setError(null);
       const data = await listIdeaCreators();
-      setCreators(data);
-      if (!creatorId && data.length > 0) {
-        setCreatorId(data[0].id);
-      }
+      const matchingProfiles = data.filter((profile) => profile.id === user.id);
+      const nextCreators = matchingProfiles.length > 0 ? matchingProfiles : data;
+      setCreators(nextCreators);
+      setCreatorId(user.id);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to load idea creators";
       setError(message);
@@ -49,7 +59,7 @@ const SubmitIdeaScreen = ({ navigation }: SubmitIdeaScreenProps) => {
     } finally {
       setLoadingProfiles(false);
     }
-  }, [creatorId]);
+  }, [creatorId, user]);
 
   useEffect(() => {
     void loadCreators();
@@ -65,6 +75,11 @@ const SubmitIdeaScreen = ({ navigation }: SubmitIdeaScreenProps) => {
   );
 
   const handleSubmit = useCallback(async () => {
+    if (!user) {
+      Alert.alert("Sign in required", "Create an account to submit ideas.");
+      return;
+    }
+
     if (!creatorId) {
       Alert.alert("Choose creator", "Select an idea creator profile to submit under.");
       return;
@@ -81,7 +96,7 @@ const SubmitIdeaScreen = ({ navigation }: SubmitIdeaScreenProps) => {
         title,
         description,
         tags,
-        creatorId,
+        creatorId: user.id,
       });
 
       Alert.alert("Success", "Idea submitted successfully!", [
@@ -119,6 +134,10 @@ const SubmitIdeaScreen = ({ navigation }: SubmitIdeaScreenProps) => {
           </Text>
         ) : null}
 
+        {!user ? (
+          <Text style={styles.errorText}>Sign in as an idea creator to submit ideas.</Text>
+        ) : null}
+
         <Text style={styles.label}>Idea title</Text>
         <TextInput
           placeholder="Mindful commute companion"
@@ -151,7 +170,7 @@ const SubmitIdeaScreen = ({ navigation }: SubmitIdeaScreenProps) => {
         <Text style={styles.label}>Submit as</Text>
         <View style={styles.pickerWrapper}>
           <Picker
-            enabled={!loadingProfiles && !submitting}
+            enabled={!loadingProfiles && !submitting && Boolean(user)}
             selectedValue={creatorId}
             onValueChange={(value) => setCreatorId(value)}
           >
@@ -162,9 +181,9 @@ const SubmitIdeaScreen = ({ navigation }: SubmitIdeaScreenProps) => {
         </View>
 
         <TouchableOpacity
-          style={[styles.primaryButton, submitting && styles.disabledButton]}
+          style={[styles.primaryButton, (submitting || !user) && styles.disabledButton]}
           onPress={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || !user}
         >
           <Text style={styles.primaryButtonText}>{submitting ? "Submitting…" : "Submit idea"}</Text>
         </TouchableOpacity>

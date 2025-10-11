@@ -27,4 +27,31 @@ export const config = {
   ),
   verificationMaxAttempts: Number(process.env.VERIFICATION_MAX_ATTEMPTS ?? 5),
   verificationLoggingEnabled: process.env.VERIFICATION_LOGGING_ENABLED !== "false",
+  aws: (() => {
+    const region = process.env.AWS_REGION?.trim() ?? "";
+    const accessKeyId = process.env.AWS_ACCESS_KEY_ID?.trim() ?? "";
+    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY?.trim() ?? "";
+    const sessionToken = process.env.AWS_SESSION_TOKEN?.trim() ?? "";
+    const senderId = process.env.AWS_SNS_SENDER_ID?.trim() ?? "";
+    const originationNumber = process.env.AWS_SNS_ORIGINATION_NUMBER?.trim() ?? "";
+    const smsType = process.env.AWS_SNS_SMS_TYPE?.trim() || "Transactional";
+
+    return {
+      region: region || null,
+      credentials: {
+        accessKeyId: accessKeyId || null,
+        secretAccessKey: secretAccessKey || null,
+        sessionToken: sessionToken || null,
+      } as const,
+      sns: {
+        region: region || null,
+        senderId: senderId || null,
+        originationNumber: originationNumber || null,
+        smsType,
+        enabled: Boolean(region),
+      } as const,
+    } as const;
+  })(),
+  dataTableName: process.env.DATA_TABLE_NAME?.trim() || null,
+  dynamoEndpoint: process.env.DYNAMODB_ENDPOINT?.trim() || null,
 };

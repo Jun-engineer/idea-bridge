@@ -1,5 +1,5 @@
+import type { AuthResult, AuthUser, UserRole, VerificationChallenge } from "../types";
 import { apiRequest } from "./http";
-import type { AuthResult, AuthUser, UserRole, VerificationChallenge } from "../types/models";
 
 interface AuthResponseAuthenticated {
   status: "authenticated";
@@ -53,6 +53,7 @@ function mapAuthResponse(response: AuthResponse): AuthResult {
     return {
       status: "authenticated",
       user: response.user,
+      token: response.token ?? null,
     };
   }
 
@@ -86,9 +87,7 @@ export async function logoutUser(): Promise<void> {
 }
 
 export async function fetchCurrentUser(): Promise<AuthUser | null> {
-  const response = await apiRequest<{ user: AuthUser | null }>("/api/auth/me", {
-    method: "GET",
-  });
+  const response = await apiRequest<{ user: AuthUser | null }>("/api/auth/me");
   return response.user;
 }
 
@@ -113,9 +112,6 @@ export async function deleteAccount(): Promise<void> {
 export async function fetchVerification(requestId: string): Promise<VerificationChallenge> {
   const response = await apiRequest<{ verification: VerificationChallenge }>(
     `/api/auth/verification/${requestId}`,
-    {
-      method: "GET",
-    },
   );
   return response.verification;
 }
