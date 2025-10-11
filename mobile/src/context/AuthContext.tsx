@@ -1,37 +1,51 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import * as SecureStore from "expo-secure-store";
+
 import type {
   AuthResult,
   AuthUser,
   UserRole,
   VerificationChallenge,
-} from "../types/models";
+} from "../types";
 import {
+  confirmVerification,
   deleteAccount,
   fetchCurrentUser,
   fetchVerification,
-  confirmVerification,
-  resendVerificationCode,
-  startVerification as startVerificationRequest,
   loginUser,
   logoutUser,
   registerUser,
+  resendVerificationCode,
+  startVerification,
   updateProfile,
 } from "../api/auth";
+import { setAuthToken } from "../api/http";
+
+const TOKEN_KEY = "ideaBridge.accessToken";
 
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
   pendingVerification: VerificationChallenge | null;
   login: (email: string, password: string) => Promise<AuthResult>;
-  register: (input: {
-    email: string;
-    password: string;
-    displayName: string;
-    bio?: string;
-    preferredRole: UserRole;
-    phoneNumber: string;
-  }) => Promise<AuthResult>;
+  register: (
+    input: {
+      email: string;
+      password: string;
+      displayName: string;
+      bio?: string;
+      preferredRole: UserRole;
+      phoneNumber: string;
+    },
+  ) => Promise<AuthResult>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   update: (
@@ -52,38 +66,83 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+async function persistToken(token: string | null) {
+  setAuthToken(token);
+  if (!token) {
+    await SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => undefined);
+    return;
+  }
+  await SecureStore.setItemAsync(TOKEN_KEY, token);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [pendingVerification, setPendingVerification] = useState<VerificationChallenge | null>(null);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const current = await fetchCurrentUser();
-      setUser(current);
-      setPendingVerification(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    let active = true;
 
-  const handleAuthResult = useCallback((result: AuthResult, options?: { preserveUser?: boolean }) => {
-    if (result.status === "authenticated") {
-      setUser(result.user);
-      setPendingVerification(null);
-    } else {
-      setPendingVerification(result.verification);
-      if (!options?.preserveUser) {
-        setUser(null);
+    void (async () => {
+      try {
+        const storedToken = await SecureStore.getItemAsync(TOKEN_KEY);
+        if (!active) return;
+        if (storedToken) {
+          setAuthToken(storedToken);
+          try {
+            const current = await fetchCurrentUser();
+            if (!active) return;
+            if (current) {
+              setUser(current);
+            } else {
+              await persistToken(null);
+              if (!active) return;
+              setUser(null);
+            }
+          } catch (err) {
+            console.warn("Failed to restore user session", err);
+            await persistToken(null);
+            if (!active) return;
+            setUser(null);
+          }
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
-    }
-    return result;
+    })();
+
+    return () => {
+      active = false;
+    };
   }, []);
+
+  const handleAuthResult = useCallback(
+    async (
+      result: AuthResult,
+      options?: { preserveUser?: boolean; preserveToken?: boolean },
+    ) => {
+      if (result.status === "authenticated") {
+        if (!result.token) {
+          console.warn("Authenticated response missing access token");
+        }
+        await persistToken(result.token ?? null);
+        setUser(result.user);
+        setPendingVerification(null);
+      } else {
+        if (!options?.preserveToken) {
+          await persistToken(null);
+        }
+        setPendingVerification(result.verification);
+        if (!options?.preserveUser) {
+          setUser(null);
+        }
+      }
+      return result;
+    },
+    [],
+  );
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -109,9 +168,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
-    await logoutUser();
-    setUser(null);
-    setPendingVerification(null);
+    try {
+      await logoutUser();
+    } finally {
+      await persistToken(null);
+      setUser(null);
+      setPendingVerification(null);
+    }
+  }, []);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      const current = await fetchCurrentUser();
+      if (current) {
+        setUser(current);
+        setPendingVerification(null);
+      } else {
+        await persistToken(null);
+        setUser(null);
+      }
+    } catch (err) {
+      console.warn("Failed to refresh auth state", err);
+      await persistToken(null);
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const update = useCallback(
@@ -131,6 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const removeAccount = useCallback(async () => {
     await deleteAccount();
+    await persistToken(null);
     setUser(null);
     setPendingVerification(null);
   }, []);
@@ -157,8 +241,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const start = useCallback(
     async (input?: { phoneNumber?: string }) => {
-  const result = await startVerificationRequest(input ?? {});
-      return handleAuthResult(result, { preserveUser: true });
+      const result = await startVerification(input ?? {});
+      return handleAuthResult(result, { preserveUser: true, preserveToken: true });
     },
     [handleAuthResult],
   );
@@ -167,7 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       loading,
-       pendingVerification,
+      pendingVerification,
       login,
       register,
       logout,
@@ -177,7 +261,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       confirmVerification: confirm,
       resendVerification: resend,
       loadVerification: load,
-  startVerification: start,
+      startVerification: start,
     }),
     [
       user,

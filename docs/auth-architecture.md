@@ -40,14 +40,15 @@ All routes are prefixed with `/api/auth`:
 | GET    | `/verification/:requestId`   | Fetch masked destination + timers for a request       | No            |
 | POST   | `/verification/request`      | Resend verification code (cooldown aware)             | No            |
 | POST   | `/verification/confirm`      | Submit verification code to activate the account      | No            |
-| POST   | `/verification/start`        | Authenticated users request new email/SMS challenge   | Yes           |
+| POST   | `/verification/start`        | Authenticated users request a new SMS challenge       | Yes           |
 
 ### Auth & Verification Flow
 - Passwords hashed with `argon2id` using `argon2` package.
-- Every successful registration or login for an unverified account issues a verification request (email or SMS) and returns `{ status: "verification_required" }` with a masked destination and countdown timers.
+- Every successful registration or login for an unverified account issues an SMS verification request and returns `{ status: "verification_required" }` with a masked destination and countdown timers.
 - Users cannot obtain an authenticated session until they confirm the one-time code via `/verification/confirm`; the response sets the session cookie + JWT.
-- Authenticated users can request new challenges (e.g., switch to SMS) via `/verification/start` without dropping their current session.
+- Authenticated users can request new SMS challenges via `/verification/start` without dropping their current session.
 - Middleware validates the JWT from the session cookie on each request and attaches `req.authUser` when present.
+- SMS delivery uses Amazon SNS. Configure `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, optional `AWS_SESSION_TOKEN`, `AWS_SNS_SENDER_ID`, `AWS_SNS_ORIGINATION_NUMBER`, and `AWS_SNS_SMS_TYPE` to enable outbound messages. When unset, the API logs the code and returns a 201 response but no SMS is sent.
 
 ## Frontend State Management
 

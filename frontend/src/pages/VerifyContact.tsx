@@ -147,9 +147,7 @@ export function VerifyContactPage() {
         <h1>Verify your account</h1>
         {challenge ? (
           <p>
-            We sent a {challenge.method === "email" ? "verification email" : "text message"} to
-            {" "}
-            <strong>{challenge.maskedDestination}</strong>.
+            We sent a text message to <strong>{challenge.maskedDestination}</strong> with your code.
           </p>
         ) : (
           <p>Loading your verification challenge…</p>

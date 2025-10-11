@@ -45,8 +45,8 @@ function mapUserToIdeaCreatorProfile(user: User): IdeaCreatorProfile {
   };
 }
 
-router.get("/developers", (_req: Request, res: Response) => {
-  const users = listUsers();
+router.get("/developers", async (_req: Request, res: Response) => {
+  const users = await listUsers();
   const userDevelopers = users
     .filter((user) => userCanActAsRole(user, "developer"))
     .map((user) => serializeDeveloperProfile(mapUserToDeveloperProfile(user)));
@@ -62,8 +62,8 @@ router.get("/developers", (_req: Request, res: Response) => {
   res.json({ developers });
 });
 
-router.get("/idea-creators", (_req: Request, res: Response) => {
-  const users = listUsers();
+router.get("/idea-creators", async (_req: Request, res: Response) => {
+  const users = await listUsers();
   const userCreators = users
     .filter((user) => userCanActAsRole(user, "idea-creator"))
     .map((user) => serializeIdeaCreatorProfile(mapUserToIdeaCreatorProfile(user)));
@@ -79,10 +79,13 @@ router.get("/idea-creators", (_req: Request, res: Response) => {
   res.json({ ideaCreators });
 });
 
-router.get("/:role/:id", (req: Request, res: Response) => {
+router.get("/:role/:id", async (req: Request, res: Response) => {
   const { role, id } = req.params;
+  const users = await listUsers();
   if (role === "developer") {
-    const user = listUsers().find((candidate) => candidate.id === id && userCanActAsRole(candidate, "developer"));
+    const user = users.find(
+      (candidate) => candidate.id === id && userCanActAsRole(candidate, "developer"),
+    );
     if (user) {
       return res.json({ profile: serializeDeveloperProfile(mapUserToDeveloperProfile(user)) });
     }
@@ -100,7 +103,9 @@ router.get("/:role/:id", (req: Request, res: Response) => {
   }
 
   if (role === "idea-creator") {
-    const user = listUsers().find((candidate) => candidate.id === id && userCanActAsRole(candidate, "idea-creator"));
+    const user = users.find(
+      (candidate) => candidate.id === id && userCanActAsRole(candidate, "idea-creator"),
+    );
     if (user) {
       return res.json({ profile: serializeIdeaCreatorProfile(mapUserToIdeaCreatorProfile(user)) });
     }

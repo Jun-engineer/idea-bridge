@@ -19,10 +19,12 @@ import { listIdeas } from "../api/ideas";
 import type { Idea } from "../types";
 import { mockDevelopers, mockIdeas } from "../mocks";
 import type { RootStackParamList } from "../navigation/types";
+import { useAuth } from "../context/AuthContext";
 
 interface SubmitAppScreenProps extends NativeStackScreenProps<RootStackParamList, "SubmitApp"> {}
 
 const SubmitAppScreen = ({ navigation, route }: SubmitAppScreenProps) => {
+  const { user } = useAuth();
   const preSelectedIdeaId = route.params?.ideaId;
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -36,17 +38,27 @@ const SubmitAppScreen = ({ navigation, route }: SubmitAppScreenProps) => {
   const [error, setError] = useState<string | null>(null);
 
   const loadFormData = useCallback(async () => {
+    if (!user) {
+      setIdeas(mockIdeas);
+      setDevelopers(mockDevelopers);
+      setIdeaId(preSelectedIdeaId ?? mockIdeas[0]?.id);
+      setDeveloperId(undefined);
+      setError("Sign in to submit your build.");
+      setLoading(false);
+      return;
+    }
     try {
       setError(null);
       const [ideaData, developerData] = await Promise.all([listIdeas(), listDevelopers()]);
       setIdeas(ideaData);
-      setDevelopers(developerData);
-      if (!ideaId && ideaData.length > 0) {
-        setIdeaId(ideaData[0].id);
+      const matchingDevelopers = developerData.filter((developer) => developer.id === user.id);
+      setDevelopers(matchingDevelopers.length > 0 ? matchingDevelopers : developerData);
+      if (preSelectedIdeaId) {
+        setIdeaId(preSelectedIdeaId);
+      } else if (ideaData.length > 0) {
+        setIdeaId((prev) => prev ?? ideaData[0].id);
       }
-      if (!developerId && developerData.length > 0) {
-        setDeveloperId(developerData[0].id);
-      }
+      setDeveloperId(user.id);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to load required data";
       setError(message);
@@ -61,7 +73,7 @@ const SubmitAppScreen = ({ navigation, route }: SubmitAppScreenProps) => {
     } finally {
       setLoading(false);
     }
-  }, [developerId, ideaId]);
+  }, [preSelectedIdeaId, user]);
 
   useEffect(() => {
     void loadFormData();
@@ -70,6 +82,11 @@ const SubmitAppScreen = ({ navigation, route }: SubmitAppScreenProps) => {
   const selectedIdea = useMemo(() => ideas.find((candidate) => candidate.id === ideaId) ?? null, [ideaId, ideas]);
 
   const handleSubmit = useCallback(async () => {
+    if (!user) {
+      Alert.alert("Sign in required", "Log in to share your build.");
+      return;
+    }
+
     if (!ideaId || !developerId) {
       Alert.alert("Missing selection", "Pick both an idea and a developer profile.");
       return;
@@ -87,7 +104,7 @@ const SubmitAppScreen = ({ navigation, route }: SubmitAppScreenProps) => {
         title,
         description,
         url,
-        developerId,
+        developerId: user.id,
       });
 
       Alert.alert("Success", "App submission posted!", [
@@ -125,6 +142,10 @@ const SubmitAppScreen = ({ navigation, route }: SubmitAppScreenProps) => {
           </Text>
         ) : null}
 
+        {!user ? (
+          <Text style={styles.errorText}>Sign in as a developer to submit your build.</Text>
+        ) : null}
+
         <Text style={styles.label}>Idea</Text>
         <View style={styles.pickerWrapper}>
           <Picker
@@ -141,7 +162,7 @@ const SubmitAppScreen = ({ navigation, route }: SubmitAppScreenProps) => {
         <Text style={styles.label}>Submit as</Text>
         <View style={styles.pickerWrapper}>
           <Picker
-            enabled={!loading && !submitting}
+            enabled={!loading && !submitting && Boolean(user)}
             selectedValue={developerId}
             onValueChange={(value) => setDeveloperId(value)}
           >
@@ -193,9 +214,9 @@ const SubmitAppScreen = ({ navigation, route }: SubmitAppScreenProps) => {
         ) : null}
 
         <TouchableOpacity
-          style={[styles.primaryButton, submitting && styles.disabledButton]}
+          style={[styles.primaryButton, (submitting || !user) && styles.disabledButton]}
           onPress={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || !user}
         >
           <Text style={styles.primaryButtonText}>{submitting ? "Submitting…" : "Submit build"}</Text>
         </TouchableOpacity>

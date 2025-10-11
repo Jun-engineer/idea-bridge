@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import type { UserRole, VerificationMethod } from "../types/models";
+import type { UserRole } from "../types/models";
 
 export function AccountSettingsPage() {
   const {
@@ -130,19 +130,17 @@ export function AccountSettingsPage() {
     }
   };
 
-  const launchVerification = async (method: VerificationMethod) => {
+  const launchVerification = async () => {
     try {
       setVerificationError(null);
       setVerificationMessage("Sending verification code…");
-      const payload = method === "phone"
-        ? { method, phoneNumber: phoneNumber.trim().length > 0 ? phoneNumber.trim() : undefined }
-        : { method };
-      if (method === "phone" && (!payload.phoneNumber || payload.phoneNumber.length === 0)) {
+      const trimmedPhone = phoneNumber.trim().length > 0 ? phoneNumber.trim() : user.phoneNumber ?? "";
+      if (!trimmedPhone) {
         setVerificationMessage(null);
         setVerificationError("Add a phone number above before requesting SMS verification.");
         return;
       }
-      const result = await startVerification(payload);
+      const result = await startVerification({ phoneNumber: trimmedPhone });
       if (result.status === "authenticated") {
         setVerificationMessage("Already verified—no code required.");
         return;
@@ -252,25 +250,6 @@ export function AccountSettingsPage() {
         </div>
         <div className="stack">
           <div>
-            <h3>Email</h3>
-            <p className="helper">
-              {user.emailVerified ? "Verified" : "Not verified"}
-              {user.pendingVerificationMethod === "email" || pendingVerification?.method === "email"
-                ? " • Verification pending"
-                : ""}
-            </p>
-            {!user.emailVerified ? (
-              <button
-                className="button button--secondary"
-                type="button"
-                onClick={() => void launchVerification("email")}
-                disabled={saving || signingOut || removing}
-              >
-                Send email code
-              </button>
-            ) : null}
-          </div>
-          <div>
             <h3>SMS</h3>
             <p className="helper">
               {user.phoneVerified ? "Verified" : user.phoneNumber ? "Not verified" : "No phone number on file"}
@@ -281,7 +260,7 @@ export function AccountSettingsPage() {
             <button
               className="button button--secondary"
               type="button"
-              onClick={() => void launchVerification("phone")}
+              onClick={() => void launchVerification()}
               disabled={saving || signingOut || removing || (!user.phoneNumber && phoneNumber.trim().length === 0)}
             >
               {user.phoneVerified ? "Re-send SMS code" : "Send SMS code"}

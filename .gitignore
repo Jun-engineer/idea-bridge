@@ -40,3 +40,13 @@ mobile/.expo-shared/
 
 # VS Code
 .vscode/
+
+# Terraform
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfvars
+!**/*.tfvars.example
+
+# Lambda artifacts
+infra/**/idea-bridge-backend.zip

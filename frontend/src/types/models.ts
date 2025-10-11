@@ -54,13 +54,12 @@ export interface AuthUser {
   createdAt: string;
   updatedAt: string;
   roleChangeEligibleAt: string;
-  emailVerified: boolean;
   phoneNumber: string | null;
   phoneVerified: boolean;
   pendingVerificationMethod: VerificationMethod | null;
 }
 
-export type VerificationMethod = "email" | "phone";
+export type VerificationMethod = "phone";
 
 export interface VerificationChallenge {
   requestId: string;

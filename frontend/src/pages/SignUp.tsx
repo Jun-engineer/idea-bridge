@@ -1,14 +1,13 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import type { UserRole, VerificationMethod } from "../types/models";
+import type { UserRole } from "../types/models";
 
 export function SignUpPage() {
   const { user, register } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [verificationMethod, setVerificationMethod] = useState<VerificationMethod>("email");
 
   if (user) {
     return <Navigate to="/" replace />;
@@ -39,14 +38,17 @@ export function SignUpPage() {
       setSubmitting(true);
       setError(null);
       const phoneNumber = String(formData.get("phoneNumber") ?? "").trim();
+      if (!phoneNumber) {
+        setError("Phone number is required for SMS verification.");
+        return;
+      }
       const result = await register({
         email,
         password,
         displayName,
         bio: bio.length > 0 ? bio : undefined,
         preferredRole: normalizedRole,
-        verificationMethod,
-        phoneNumber: verificationMethod === "phone" && phoneNumber.length > 0 ? phoneNumber : undefined,
+        phoneNumber,
       });
       if (result.status === "authenticated") {
         navigate("/");
@@ -85,46 +87,17 @@ export function SignUpPage() {
           <input type="password" name="password" autoComplete="new-password" required disabled={submitting} />
           <span className="helper">Use at least 8 characters.</span>
         </label>
-        <fieldset className="fieldset">
-          <legend>Verification method</legend>
-          <label className="radio-option">
-            <input
-              type="radio"
-              name="verificationMethod"
-              value="email"
-              checked={verificationMethod === "email"}
-              disabled={submitting}
-              onChange={() => setVerificationMethod("email")}
-            />
-            Verify via email
-          </label>
-          <label className="radio-option">
-            <input
-              type="radio"
-              name="verificationMethod"
-              value="phone"
-              checked={verificationMethod === "phone"}
-              disabled={submitting}
-              onChange={() => setVerificationMethod("phone")}
-            />
-            Verify via SMS
-          </label>
-          <span className="helper">
-            Choose how you&apos;d like to confirm your account. SMS requires a phone number.
-          </span>
-        </fieldset>
-        {verificationMethod === "phone" ? (
-          <label>
-            Phone number
-            <input
-              type="tel"
-              name="phoneNumber"
-              placeholder="+1 555 555 1212"
-              required
-              disabled={submitting}
-            />
-          </label>
-        ) : null}
+        <label>
+          Phone number
+          <input
+            type="tel"
+            name="phoneNumber"
+            placeholder="+1 555 555 1212"
+            required
+            disabled={submitting}
+          />
+          <span className="helper">We&apos;ll send your verification code via SMS.</span>
+        </label>
         <label>
           Bio <span className="helper">(optional)</span>
           <textarea name="bio" rows={4} placeholder="Share a short intro" disabled={submitting} />
