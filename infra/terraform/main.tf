@@ -331,7 +331,8 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "s3:GetBucketCors",
       "s3:GetBucketWebsite",
   "s3:GetBucketVersioning",
-      "s3:GetObject",
+        "s3:GetAccelerateConfiguration",
+        "s3:GetObject",
       "s3:PutObject",
       "s3:DeleteObject",
       "s3:ListBucket"
@@ -360,7 +361,8 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "lambda:UpdateFunctionConfiguration",
       "lambda:DeleteFunction",
       "lambda:GetFunction",
-  "lambda:ListVersionsByFunction",
+    "lambda:GetFunctionCodeSigningConfig",
+    "lambda:ListVersionsByFunction",
       "lambda:PublishVersion",
       "lambda:TagResource",
       "lambda:UntagResource"
