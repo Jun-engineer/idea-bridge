@@ -36,6 +36,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.8.5
+          terraform_wrapper: false
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -73,6 +74,7 @@ jobs:
           verification_code_ttl = 600
           verification_resend_cooldown = 60
           verification_max_attempts = 5
+          lambda_package_path = "${{ github.workspace }}/backend/idea-bridge-backend.zip"
           EOF
 
       - name: Terraform init
