@@ -332,6 +332,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "s3:GetBucketWebsite",
       "s3:GetBucketVersioning",
   "s3:GetBucketLogging",
+  "s3:GetLifecycleConfiguration",
       "s3:GetAccelerateConfiguration",
       "s3:GetBucketRequestPayment",
       "s3:GetObject",
