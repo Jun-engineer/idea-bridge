@@ -462,7 +462,8 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     sid    = "IamList"
     effect = "Allow"
     actions = [
-      "iam:ListRolePolicies"
+      "iam:ListRolePolicies",
+      "iam:ListAttachedRolePolicies"
     ]
     resources = [
       aws_iam_role.lambda.arn,
