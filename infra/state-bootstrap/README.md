@@ -5,7 +5,7 @@ remote state when using the main deployment under `../terraform`.
 
 ## Resources created
 - S3 bucket to store `terraform.tfstate` (versioned + SSE enforced)
-- (Optional) DynamoDB table for legacy state locking workflows
+- DynamoDB table used for state locking
 
 ## Usage
 1. From this directory, initialize and apply the bootstrap stack (using the
@@ -14,8 +14,7 @@ remote state when using the main deployment under `../terraform`.
    terraform init
    terraform apply
    ```
-   Optionally override names (you can skip the lock table variables if relying
-   on the new S3 lockfile behaviour in Terraform ≥ 1.13):
+   Optionally override names:
    ```bash
    terraform apply \
      -var="project_name=idea-bridge" \
@@ -24,10 +23,9 @@ remote state when using the main deployment under `../terraform`.
      -var="lock_table_name=idea-bridge-prod-tf-locks"
    ```
 
-2. Once the bucket exists, update the backend settings for the main Terraform
-   project (`../terraform/backend.tf`) with the actual bucket name if it differs
-   from the defaults. If you still rely on a DynamoDB lock table (pre-Terraform
-   1.13), update that here as well.
+2. Once the bucket/table exist, update the backend settings for the main
+   Terraform project (`../terraform/backend.tf`) with the actual bucket and
+   table names if they differ from the defaults.
 
 3. Re-run `terraform init -reconfigure` in `../terraform` to migrate local
    state into the remote backend.

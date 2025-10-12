@@ -9,6 +9,7 @@ locals {
   env         = var.environment
   name_prefix = "${local.project}-${local.env}"
   tf_state_bucket_name = "${local.name_prefix}-tf-state"
+  tf_lock_table_name   = "${local.name_prefix}-tf-locks"
   cloudfront_cache_policy_caching_disabled             = "658327ea-f89d-4fab-a63d-7e88639e58f6"
   cloudfront_origin_request_policy_all_viewer_no_host  = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
   tags = {
@@ -473,6 +474,20 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "sns:GetSMSAttributes"
     ]
     resources = ["*"]
+  }
+
+  statement {
+    sid    = "TerraformStateLock"
+    effect = "Allow"
+    actions = [
+      "dynamodb:DescribeTable",
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:DeleteItem"
+    ]
+    resources = [
+      "arn:${data.aws_partition.current.partition}:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${local.tf_lock_table_name}"
+    ]
   }
 
   statement {
