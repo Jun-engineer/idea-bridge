@@ -12,6 +12,12 @@ import {
   softDeleteUser,
   updateUser,
 } from "../data/userStore";
+import {
+  deletePendingRegistration,
+  getPendingRegistrationByEmail,
+  getPendingRegistrationById,
+  upsertPendingRegistration,
+} from "../data/pendingRegistrationStore";
 import type { User } from "../types";
 import { requireAuth } from "../middleware/auth";
 import { signAccessToken } from "../utils/jwt";
@@ -79,6 +85,18 @@ const verificationStartSchema = z.object({
     .regex(phoneNumberRegex, "Enter a valid phone number")
     .optional(),
 });
+
+const registrationVerificationPrefix = "registration:";
+
+function toRegistrationVerificationUserId(registrationId: string) {
+  return `${registrationVerificationPrefix}${registrationId}`;
+}
+
+function extractRegistrationIdFromVerification(userId: string): string | null {
+  return userId.startsWith(registrationVerificationPrefix)
+    ? userId.slice(registrationVerificationPrefix.length)
+    : null;
+}
 
 function sanitizeUser(user: User) {
   return {
@@ -170,7 +188,24 @@ router.post("/register", async (req, res) => {
   const passwordHash = await argon2.hash(password);
   const roleChangeEligibleAt = new Date(Date.now() + roleChangeCooldownMs).toISOString();
 
-  const user = await createUser({
+  if (!config.phoneVerificationEnabled) {
+    const user = await createUser({
+      email,
+      passwordHash,
+      displayName,
+      bio,
+      preferredRole,
+      roleChangeEligibleAt,
+      phoneNumber: normalizedPhone,
+      phoneVerified: true,
+      pendingVerificationMethod: null,
+    });
+
+    const responseBody = await buildAuthenticatedResponse(res, user);
+    return res.status(201).json(responseBody);
+  }
+
+  const pending = await upsertPendingRegistration({
     email,
     passwordHash,
     displayName,
@@ -178,23 +213,27 @@ router.post("/register", async (req, res) => {
     preferredRole,
     roleChangeEligibleAt,
     phoneNumber: normalizedPhone,
-    phoneVerified: !config.phoneVerificationEnabled,
-    pendingVerificationMethod: config.phoneVerificationEnabled ? "phone" : null,
   });
 
-  if (!config.phoneVerificationEnabled) {
-    const responseBody = await buildAuthenticatedResponse(res, user);
-    return res.status(201).json(responseBody);
-  }
-
   try {
-    const challenge = await issuePhoneVerification(user);
+    const request = await createVerificationRequest({
+      userId: toRegistrationVerificationUserId(pending.id),
+      method: "phone",
+      destination: normalizedPhone,
+      maskedDestination: maskPhone(normalizedPhone),
+    });
+
+    await sendSmsVerification(request.destination, request.code);
+
     return res.status(201).json({
       status: "verification_required",
-      verification: challenge,
+      verification: toChallengePayload(request),
     });
   } catch (err) {
     console.error("Failed to dispatch verification challenge", err);
+    await deletePendingRegistration(pending.id).catch(() => {
+      // Best effort cleanup; ignore secondary errors.
+    });
     return res.status(500).json({ message: "Failed to initiate verification" });
   }
 });
@@ -208,6 +247,15 @@ router.post("/login", async (req, res) => {
   const { email, password } = parseResult.data;
   const user = await getUserByEmail(email);
   if (!user || user.deletedAt) {
+    if (config.phoneVerificationEnabled) {
+      const pending = await getPendingRegistrationByEmail(email);
+      if (pending) {
+        return res.status(403).json({
+          status: "verification_required",
+          message: "Complete phone verification to finish registration",
+        });
+      }
+    }
     return res.status(401).json({ message: "Invalid email or password" });
   }
 
@@ -284,6 +332,24 @@ router.post("/verification/request", async (req, res) => {
   const refreshed = await regenerateVerificationRequest(requestId);
   if (!refreshed) {
     return res.status(404).json({ message: "Verification request not found" });
+  }
+
+  const registrationId = extractRegistrationIdFromVerification(refreshed.userId);
+  if (registrationId) {
+    const pending = await getPendingRegistrationById(registrationId);
+    if (!pending) {
+      await clearVerificationForUser(refreshed.userId, refreshed.method);
+      return res.status(404).json({ message: "Verification request not found" });
+    }
+
+    try {
+      await sendSmsVerification(refreshed.destination, refreshed.code);
+    } catch (err) {
+      console.error("Failed to resend registration verification", err);
+      return res.status(500).json({ message: "Failed to resend verification" });
+    }
+
+    return res.json({ verification: toChallengePayload(refreshed) });
   }
 
   const user = await getUserById(refreshed.userId);
@@ -376,6 +442,37 @@ router.post("/verification/confirm", async (req, res) => {
   }
 
   const request = result.request!;
+  const registrationId = extractRegistrationIdFromVerification(request.userId);
+  if (registrationId) {
+    const pending = await getPendingRegistrationById(registrationId);
+    if (!pending) {
+      return res.status(404).json({ message: "Registration not found" });
+    }
+
+    const existingUser = await getUserByEmail(pending.email);
+    if (existingUser && !existingUser.deletedAt) {
+      await deletePendingRegistration(registrationId);
+      return res.status(409).json({ message: "An account with that email already exists" });
+    }
+
+    const newUser = await createUser({
+      email: pending.email,
+      passwordHash: pending.passwordHash,
+      displayName: pending.displayName,
+      bio: pending.bio,
+      preferredRole: pending.preferredRole,
+      roleChangeEligibleAt: pending.roleChangeEligibleAt,
+      phoneNumber: pending.phoneNumber,
+      phoneVerified: true,
+      pendingVerificationMethod: null,
+    });
+
+    await deletePendingRegistration(registrationId);
+
+    const responseBody = await buildAuthenticatedResponse(res, newUser);
+    return res.json(responseBody);
+  }
+
   const user = await getUserById(request.userId);
   if (!user || user.deletedAt) {
     return res.status(404).json({ message: "User not found" });

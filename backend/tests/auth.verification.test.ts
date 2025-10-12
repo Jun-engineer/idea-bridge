@@ -31,6 +31,7 @@ import {
   resetVerificationStore,
   type VerificationRequest,
 } from "../src/data/verificationStore";
+import { resetPendingRegistrationStore } from "../src/data/pendingRegistrationStore";
 import { __resetSmsClientForTests } from "../src/services/notification";
 
 function createApp() {
@@ -46,6 +47,7 @@ describe("auth verification flows", () => {
   beforeEach(() => {
     resetUserStore();
     resetVerificationStore();
+    resetPendingRegistrationStore();
     snsProvider.ctor.mockClear();
     snsProvider.send.mockClear();
     snsProvider.publishCommand.mockClear();
@@ -103,6 +105,42 @@ describe("auth verification flows", () => {
       cookie.startsWith(`${config.sessionCookieName}=`),
     );
     expect(hasSessionCookie).toBe(true);
+  });
+
+  it("blocks login until phone verification is completed", async () => {
+    const app = createApp();
+    const agent = request.agent(app);
+
+    const phone = "+15555551444";
+    const email = "pending-login@example.com";
+    const password = "strongpass123";
+
+    const registerResponse = await agent.post("/api/auth/register").send({
+      email,
+      password,
+      displayName: "Pending Login",
+      preferredRole: "developer",
+      phoneNumber: phone,
+    });
+
+    expect(registerResponse.status).toBe(201);
+    const requestId: string = registerResponse.body.verification.requestId;
+
+    const loginAttempt = await agent.post("/api/auth/login").send({ email, password });
+    expect(loginAttempt.status).toBe(403);
+    expect(loginAttempt.body.status).toBe("verification_required");
+
+    const verificationRecord = (await getRequest(requestId)) as VerificationRequest | null;
+    expect(verificationRecord).not.toBeNull();
+
+    const confirmResponse = await agent.post("/api/auth/verification/confirm").send({
+      requestId,
+      code: verificationRecord?.code,
+    });
+
+    expect(confirmResponse.status).toBe(200);
+    expect(confirmResponse.body.user.email).toBe(email);
+    expect(confirmResponse.body.user.phoneVerified).toBe(true);
   });
 
   it("rejects phone numbers without a country code", async () => {
