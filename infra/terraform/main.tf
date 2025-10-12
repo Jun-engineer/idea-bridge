@@ -10,6 +10,8 @@ locals {
   name_prefix = "${local.project}-${local.env}"
   tf_state_bucket_name = "${local.name_prefix}-tf-state"
   tf_lock_table_name   = "${local.name_prefix}-tf-locks"
+  cloudfront_cache_policy_caching_disabled    = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+  cloudfront_origin_request_policy_all_viewer = "216adef6-5c7f-47e4-b989-5492eafa07d3"
   tags = {
     Project     = local.project
     Environment = local.env
@@ -98,6 +100,18 @@ resource "aws_cloudfront_distribution" "frontend" {
     }
   }
 
+  origin {
+    domain_name = replace(aws_apigatewayv2_api.backend.api_endpoint, "https://", "")
+    origin_id   = "apigw-backend"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
   default_cache_behavior {
     allowed_methods  = ["GET", "HEAD", "OPTIONS"]
     cached_methods   = ["GET", "HEAD"]
@@ -111,6 +125,17 @@ resource "aws_cloudfront_distribution" "frontend" {
         forward = "none"
       }
     }
+  }
+
+  ordered_cache_behavior {
+    path_pattern     = "api/*"
+    allowed_methods  = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "apigw-backend"
+    viewer_protocol_policy = "https-only"
+    compress               = true
+    cache_policy_id        = local.cloudfront_cache_policy_caching_disabled
+    origin_request_policy_id = local.cloudfront_origin_request_policy_all_viewer
   }
 
   restrictions {

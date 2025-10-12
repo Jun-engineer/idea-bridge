@@ -1,6 +1,7 @@
-const DEFAULT_BASE_URL = "http://localhost:4000";
+const DEFAULT_BASE_URL = import.meta.env.DEV ? "http://localhost:4000" : "";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? DEFAULT_BASE_URL;
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = configuredBaseUrl && configuredBaseUrl.length > 0 ? configuredBaseUrl : DEFAULT_BASE_URL;
 
 interface RequestOptions extends RequestInit {
   skipJson?: boolean;
