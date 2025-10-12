@@ -108,6 +108,37 @@
   resize: vertical;
 }
 
+.form__password-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.form__password-input {
+  width: 100%;
+  padding-right: 3.25rem;
+}
+
+.form__password-toggle {
+  position: absolute;
+  right: 0.85rem;
+  border: none;
+  background: transparent;
+  color: #9fb2d7;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.form__password-toggle:hover {
+  color: #f5f7fb;
+}
+
+.form__password-toggle:focus-visible {
+  outline: 2px solid rgba(97, 218, 251, 0.6);
+  border-radius: 4px;
+}
+
 .fieldset {
   border: 1px solid rgba(97, 218, 251, 0.25);
   border-radius: 16px;

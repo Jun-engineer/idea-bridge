@@ -10,8 +10,8 @@ locals {
   name_prefix = "${local.project}-${local.env}"
   tf_state_bucket_name = "${local.name_prefix}-tf-state"
   tf_lock_table_name   = "${local.name_prefix}-tf-locks"
-  cloudfront_cache_policy_caching_disabled    = "658327ea-f89d-4fab-a63d-7e88639e58f6"
-  cloudfront_origin_request_policy_all_viewer = "216adef6-5c7f-47e4-b989-5492eafa07d3"
+  cloudfront_cache_policy_caching_disabled             = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+  cloudfront_origin_request_policy_all_viewer_no_host  = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
   tags = {
     Project     = local.project
     Environment = local.env
@@ -134,8 +134,8 @@ resource "aws_cloudfront_distribution" "frontend" {
     target_origin_id = "apigw-backend"
     viewer_protocol_policy = "https-only"
     compress               = true
-    cache_policy_id        = local.cloudfront_cache_policy_caching_disabled
-    origin_request_policy_id = local.cloudfront_origin_request_policy_all_viewer
+  cache_policy_id          = local.cloudfront_cache_policy_caching_disabled
+  origin_request_policy_id = local.cloudfront_origin_request_policy_all_viewer_no_host
   }
 
   restrictions {
@@ -214,7 +214,18 @@ resource "aws_iam_role_policy" "lambda_app" {
       },
       {
         Effect = "Allow"
-        Action = ["dynamodb:BatchGetItem", "dynamodb:BatchWriteItem", "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Scan"],
+        Action = [
+          "dynamodb:BatchGetItem",
+          "dynamodb:BatchWriteItem",
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:Query",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:Scan",
+          "dynamodb:TransactWriteItems",
+          "dynamodb:TransactGetItems"
+        ],
         Resource = [
           aws_dynamodb_table.app.arn,
           "${aws_dynamodb_table.app.arn}/index/*"
@@ -257,6 +268,7 @@ resource "aws_lambda_function" "backend" {
       VERIFICATION_RESEND_COOLDOWN_SECONDS = tostring(var.verification_resend_cooldown)
       VERIFICATION_MAX_ATTEMPTS            = tostring(var.verification_max_attempts)
       VERIFICATION_LOGGING_ENABLED         = "false"
+      PHONE_VERIFICATION_ENABLED           = tostring(var.phone_verification_enabled)
     }
   }
 

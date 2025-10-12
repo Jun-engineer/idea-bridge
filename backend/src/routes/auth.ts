@@ -167,9 +167,14 @@ router.post("/register", async (req, res) => {
     preferredRole,
     roleChangeEligibleAt,
     phoneNumber: normalizedPhone,
-    phoneVerified: false,
-    pendingVerificationMethod: "phone",
+    phoneVerified: !config.phoneVerificationEnabled,
+    pendingVerificationMethod: config.phoneVerificationEnabled ? "phone" : null,
   });
+
+  if (!config.phoneVerificationEnabled) {
+    const responseBody = await buildAuthenticatedResponse(res, user);
+    return res.status(201).json(responseBody);
+  }
 
   try {
     const challenge = await issuePhoneVerification(user);
@@ -200,7 +205,7 @@ router.post("/login", async (req, res) => {
     return res.status(401).json({ message: "Invalid email or password" });
   }
 
-  if (user.pendingVerificationMethod === "phone") {
+  if (config.phoneVerificationEnabled && user.pendingVerificationMethod === "phone") {
     try {
       const challenge = await issuePhoneVerification(user);
       return res.json({ status: "verification_required", verification: challenge });
@@ -287,6 +292,9 @@ router.post("/verification/request", async (req, res) => {
 });
 
 router.post("/verification/start", requireAuth, async (req, res) => {
+  if (!config.phoneVerificationEnabled) {
+    return res.status(400).json({ message: "Phone verification is currently disabled" });
+  }
   const parseResult = verificationStartSchema.safeParse(req.body);
   if (!parseResult.success) {
     return res.status(400).json({ errors: parseResult.error.flatten() });

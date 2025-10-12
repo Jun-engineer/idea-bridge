@@ -8,6 +8,7 @@ export function SignUpPage() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   if (user) {
     return <Navigate to="/" replace />;
@@ -84,7 +85,24 @@ export function SignUpPage() {
         </label>
         <label>
           Password
-          <input type="password" name="password" autoComplete="new-password" required disabled={submitting} />
+          <div className="form__password-field">
+            <input
+              className="form__password-input"
+              type={showPassword ? "text" : "password"}
+              name="password"
+              autoComplete="new-password"
+              required
+              disabled={submitting}
+            />
+            <button
+              className="form__password-toggle"
+              type="button"
+              onClick={() => setShowPassword((previous) => !previous)}
+              aria-pressed={showPassword}
+            >
+              {showPassword ? "Hide" : "Show"}
+            </button>
+          </div>
           <span className="helper">Use at least 8 characters.</span>
         </label>
         <label>

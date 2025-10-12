@@ -20,6 +20,7 @@ export const config = {
   ideaSubmissionLimit: Number(process.env.IDEA_SUBMISSION_LIMIT ?? 5),
   appSubmissionLimit: Number(process.env.APP_SUBMISSION_LIMIT ?? 5),
   submissionWindowSeconds: Number(process.env.SUBMISSION_WINDOW_SECONDS ?? 60 * 60),
+  phoneVerificationEnabled: process.env.PHONE_VERIFICATION_ENABLED === "true",
   verificationCodeLength: Number(process.env.VERIFICATION_CODE_LENGTH ?? 6),
   verificationCodeTtlSeconds: Number(process.env.VERIFICATION_CODE_TTL_SECONDS ?? 10 * 60),
   verificationResendCooldownSeconds: Number(

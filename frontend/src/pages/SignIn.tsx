@@ -7,6 +7,7 @@ export function SignInPage() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   if (user) {
     return <Navigate to="/" replace />;
@@ -57,7 +58,24 @@ export function SignInPage() {
         </label>
         <label>
           Password
-          <input type="password" name="password" autoComplete="current-password" required disabled={submitting} />
+          <div className="form__password-field">
+            <input
+              className="form__password-input"
+              type={showPassword ? "text" : "password"}
+              name="password"
+              autoComplete="current-password"
+              required
+              disabled={submitting}
+            />
+            <button
+              className="form__password-toggle"
+              type="button"
+              onClick={() => setShowPassword((previous) => !previous)}
+              aria-pressed={showPassword}
+            >
+              {showPassword ? "Hide" : "Show"}
+            </button>
+          </div>
         </label>
         <button className="button" type="submit" disabled={submitting}>
           {submitting ? "Signing in…" : "Sign in"}
