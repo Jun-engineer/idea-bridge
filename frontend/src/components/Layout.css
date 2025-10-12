@@ -10,4 +10,21 @@
   flex: 1;
   width: min(1200px, 95vw);
   margin: 2rem auto;
+  padding: 0 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .layout__content {
+    width: min(960px, 96vw);
+    margin: 1.5rem auto;
+    padding: 0 1.25rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .layout__content {
+    width: 100%;
+    margin: 1.25rem auto 1.75rem;
+    padding: 0 1rem;
+  }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { listDevelopers, listIdeaCreators } from "../api/profiles";
 import { useAuth } from "../context/AuthContext";
 import type { DeveloperProfile, IdeaCreatorProfile } from "../types/models";
@@ -10,7 +10,9 @@ export function NavigationBar() {
   const [creators, setCreators] = useState<IdeaCreatorProfile[]>([]);
   const [developerId, setDeveloperId] = useState<string>("");
   const [creatorId, setCreatorId] = useState<string>("");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   useEffect(() => {
     let active = true;
@@ -71,20 +73,37 @@ export function NavigationBar() {
   const developerHref = useMemo(() => (developerId ? `/profiles/developer/${developerId}` : "#"), [developerId]);
   const creatorHref = useMemo(() => (creatorId ? `/profiles/idea-creator/${creatorId}` : "#"), [creatorId]);
 
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [location.pathname, user]);
+
   return (
     <header className="navigation">
       <Link to="/" className="navigation__brand">
         IdeaBridge
       </Link>
-      <nav className="navigation__menu">
+      <button
+        type="button"
+        className="navigation__toggle"
+        aria-expanded={isMenuOpen}
+        aria-controls="navigation-menu"
+        aria-label="Toggle navigation menu"
+        onClick={() => setIsMenuOpen((open) => !open)}
+      >
+        Menu
+      </button>
+      <nav
+        id="navigation-menu"
+        className={`navigation__menu${isMenuOpen ? " navigation__menu--open" : ""}`}
+      >
         <NavLink to="/" end>
           Ideas
         </NavLink>
-  <NavLink to="/ideas/new">Submit Idea</NavLink>
-  <NavLink to="/apps/new">Submit App</NavLink>
-  {user && developerId ? <NavLink to={developerHref}>Developer</NavLink> : null}
-  {user && creatorId ? <NavLink to={creatorHref}>Idea Creator</NavLink> : null}
-  {loading ? null : user ? (
+        <NavLink to="/ideas/new">Submit Idea</NavLink>
+        <NavLink to="/apps/new">Submit App</NavLink>
+        {user && developerId ? <NavLink to={developerHref}>Developer</NavLink> : null}
+        {user && creatorId ? <NavLink to={creatorHref}>Idea Creator</NavLink> : null}
+        {loading ? null : user ? (
           <NavLink to="/profile/settings">Account</NavLink>
         ) : (
           <>
