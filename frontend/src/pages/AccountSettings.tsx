@@ -1,19 +1,17 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import type { UserRole } from "../types/models";
 
 export function AccountSettingsPage() {
   const {
     user,
-    loading,
     update,
     logout,
     deleteAccount,
     startVerification,
     pendingVerification,
   } = useAuth();
-  const navigate = useNavigate();
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [preferredRole, setPreferredRole] = useState<UserRole | "">("");
@@ -37,28 +35,31 @@ export function AccountSettingsPage() {
     }
   }, [user]);
 
-  if (loading) {
-    return (
-      <section className="page page--centered">
-        <p>Loading account…</p>
-      </section>
-    );
-  }
+  const navigate = useNavigate();
+  const isMountedRef = useRef(true);
 
-  if (!user) {
-    return <Navigate to="/signin" replace state={{ from: "/profile/settings" }} />;
-  }
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
-  const currentRoleSelection: UserRole | "" = user.preferredRole ?? "";
+  const currentRoleSelection: UserRole | "" = user?.preferredRole ?? "";
   const roleChanged = preferredRole !== currentRoleSelection;
-  const roleChangeEligibleAt = new Date(user.roleChangeEligibleAt);
-  const roleChangeLocked = roleChangeEligibleAt.getTime() > Date.now();
+  const rawRoleChangeEligibleAt = user ? new Date(user.roleChangeEligibleAt) : null;
+  const roleChangeLocked = rawRoleChangeEligibleAt ? rawRoleChangeEligibleAt.getTime() > Date.now() : false;
 
   useEffect(() => {
     if (!roleChanged) {
       setConfirmRoleChange(false);
     }
   }, [roleChanged]);
+
+  if (!user) {
+    return null;
+  }
+
+  const roleChangeEligibleAt = rawRoleChangeEligibleAt ?? new Date(user.roleChangeEligibleAt);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -89,13 +90,21 @@ export function AccountSettingsPage() {
         confirmRoleChange: roleChanged ? true : undefined,
         phoneNumber: phoneNumber.trim().length > 0 ? phoneNumber.trim() : null,
       });
+      if (!isMountedRef.current) {
+        return;
+      }
       setStatus(`Profile saved successfully at ${new Date(updated.updatedAt).toLocaleTimeString()}`);
       setConfirmRoleChange(false);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to save profile";
+      if (!isMountedRef.current) {
+        return;
+      }
       setError(message);
     } finally {
-      setSaving(false);
+      if (isMountedRef.current) {
+        setSaving(false);
+      }
     }
   };
 
@@ -105,11 +114,19 @@ export function AccountSettingsPage() {
       setStatus(null);
       setError(null);
       await logout();
+      if (isMountedRef.current) {
+        navigate("/", { replace: true });
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to sign out";
+      if (!isMountedRef.current) {
+        return;
+      }
       setError(message);
     } finally {
-      setSigningOut(false);
+      if (isMountedRef.current) {
+        setSigningOut(false);
+      }
     }
   };
 
@@ -122,11 +139,19 @@ export function AccountSettingsPage() {
       setStatus(null);
       setError(null);
       await deleteAccount();
+      if (isMountedRef.current) {
+        navigate("/", { replace: true });
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to delete account";
+      if (!isMountedRef.current) {
+        return;
+      }
       setError(message);
     } finally {
-      setRemoving(false);
+      if (isMountedRef.current) {
+        setRemoving(false);
+      }
     }
   };
 

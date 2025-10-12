@@ -1,5 +1,6 @@
 import { Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
+import { RequireAuth } from "./components/RequireAuth";
 import { HomePage } from "./pages/Home";
 import { IdeaDetailPage } from "./pages/IdeaDetail";
 import { ProfilePage } from "./pages/Profile";
@@ -23,7 +24,14 @@ function App() {
         <Route path="signin" element={<SignInPage />} />
         <Route path="signup" element={<SignUpPage />} />
   <Route path="verify" element={<VerifyContactPage />} />
-        <Route path="profile/settings" element={<AccountSettingsPage />} />
+        <Route
+          path="profile/settings"
+          element={
+            <RequireAuth redirectTo="/">
+              <AccountSettingsPage />
+            </RequireAuth>
+          }
+        />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

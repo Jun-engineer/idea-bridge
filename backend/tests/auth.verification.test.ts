@@ -9,6 +9,7 @@ const snsProvider = vi.hoisted(() => {
   process.env.AWS_SECRET_ACCESS_KEY = "secret";
   process.env.AWS_SNS_SENDER_ID = "IdeaBridge";
   process.env.AWS_SNS_SMS_TYPE = "Transactional";
+  process.env.PHONE_VERIFICATION_ENABLED = "true";
 
   const send = vi.fn().mockResolvedValue({ MessageId: "sns-message" });
   const ctor = vi.fn(() => ({ send }));
@@ -67,7 +68,7 @@ describe("auth verification flows", () => {
     expect(registerResponse.body.verification.method).toBe("phone");
     const requestId: string = registerResponse.body.verification.requestId;
 
-    const originalRecord = getRequest(requestId) as VerificationRequest | null;
+  const originalRecord = (await getRequest(requestId)) as VerificationRequest | null;
     expect(originalRecord?.destination).toBe(phone);
 
     expect(snsProvider.ctor).toHaveBeenCalledTimes(1);
@@ -80,7 +81,7 @@ describe("auth verification flows", () => {
     const resendResponseTooSoon = await agent.post("/api/auth/verification/request").send({ requestId });
     expect([200, 429]).toContain(resendResponseTooSoon.status);
 
-    const refreshedRecord = getRequest(requestId) as VerificationRequest | null;
+  const refreshedRecord = (await getRequest(requestId)) as VerificationRequest | null;
     expect(refreshedRecord).not.toBeNull();
 
     const confirmResponse = await agent.post("/api/auth/verification/confirm").send({

@@ -157,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const start = useCallback(
     async (input?: { phoneNumber?: string }) => {
-  const result = await startVerificationRequest(input ?? {});
+      const result = await startVerificationRequest(input ?? {});
       return handleAuthResult(result, { preserveUser: true });
     },
     [handleAuthResult],
