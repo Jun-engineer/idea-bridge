@@ -125,5 +125,5 @@ variable "verification_max_attempts" {
 variable "phone_verification_enabled" {
   description = "Whether phone verification challenges are required (true) or disabled (false)."
   type        = bool
-  default     = false
+  default     = true
 }

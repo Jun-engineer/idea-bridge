@@ -10,3 +10,4 @@ aws_sns_monthly_spend_limit = "1"
 verification_code_ttl       = 600
 verification_resend_cooldown = 60
 verification_max_attempts   = 5
+phone_verification_enabled  = true

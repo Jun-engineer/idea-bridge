@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { normalizePhoneNumber, sanitizePhoneNumberInput } from "../utils/phone";
 import { useAuth } from "../context/AuthContext";
 import type { UserRole } from "../types/models";
 
@@ -79,22 +80,58 @@ export function AccountSettingsPage() {
       return;
     }
 
+    const previousPhone = user.phoneNumber ?? null;
+    const nextPhone = sanitizePhoneNumberInput(phoneNumber);
+
     try {
       setSaving(true);
       setStatus(null);
       setError(null);
-      const updated = await update({
+      setVerificationMessage(null);
+      setVerificationError(null);
+      const result = await update({
         displayName: displayName.trim(),
         bio: bio.trim().length > 0 ? bio.trim() : null,
         preferredRole: preferredRole || null,
         confirmRoleChange: roleChanged ? true : undefined,
-        phoneNumber: phoneNumber.trim().length > 0 ? phoneNumber.trim() : null,
+        phoneNumber: nextPhone,
       });
+      const updated = result.user;
       if (!isMountedRef.current) {
         return;
       }
       setStatus(`Profile saved successfully at ${new Date(updated.updatedAt).toLocaleTimeString()}`);
       setConfirmRoleChange(false);
+
+      if (result.verification) {
+        setVerificationMessage(`Code sent to ${result.verification.maskedDestination}.`);
+        navigate(`/verify?request=${encodeURIComponent(result.verification.requestId)}`, {
+          state: { verification: result.verification },
+        });
+        return;
+      }
+
+      const updatedPhone = updated.phoneNumber ?? null;
+      const needsVerification =
+        updated.pendingVerificationMethod === "phone" && !updated.phoneVerified && Boolean(updatedPhone);
+
+      if (needsVerification && updatedPhone && updatedPhone !== previousPhone) {
+        try {
+          const verificationResult = await startVerification({ phoneNumber: normalizePhoneNumber(updatedPhone) });
+          if (verificationResult.status === "verification_required") {
+            setVerificationMessage(`Code sent to ${verificationResult.verification.maskedDestination}.`);
+            navigate(`/verify?request=${encodeURIComponent(verificationResult.verification.requestId)}`, {
+              state: { verification: verificationResult.verification },
+            });
+            return;
+          }
+          setVerificationMessage("Phone number already verified.");
+        } catch (verificationErr) {
+          const message =
+            verificationErr instanceof Error ? verificationErr.message : "Unable to start verification";
+          setVerificationError(message);
+        }
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to save profile";
       if (!isMountedRef.current) {
@@ -159,13 +196,14 @@ export function AccountSettingsPage() {
     try {
       setVerificationError(null);
       setVerificationMessage("Sending verification code…");
-      const trimmedPhone = phoneNumber.trim().length > 0 ? phoneNumber.trim() : user.phoneNumber ?? "";
-      if (!trimmedPhone) {
+      const candidate = phoneNumber.trim().length > 0 ? phoneNumber : user.phoneNumber ?? "";
+      const sanitized = sanitizePhoneNumberInput(candidate);
+      if (!sanitized) {
         setVerificationMessage(null);
         setVerificationError("Add a phone number above before requesting SMS verification.");
         return;
       }
-      const result = await startVerification({ phoneNumber: trimmedPhone });
+  const result = await startVerification({ phoneNumber: sanitized });
       if (result.status === "authenticated") {
         setVerificationMessage("Already verified—no code required.");
         return;

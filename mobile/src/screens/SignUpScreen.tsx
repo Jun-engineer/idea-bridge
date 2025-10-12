@@ -24,6 +24,14 @@ const roleOptions: Array<{ label: string; value: UserRole }> = [
   { label: "Developer / builder", value: "developer" },
 ];
 
+function normalizePhoneNumber(value: string): string {
+  const digits = value.replace(/[^\d+]/g, "").replace(/^00/, "+");
+  if (!digits.startsWith("+") && digits.length > 0) {
+    return `+${digits}`;
+  }
+  return digits;
+}
+
 const SignUpScreen = ({ navigation }: SignUpScreenProps) => {
   const { register } = useAuth();
   const [displayName, setDisplayName] = useState("");
@@ -57,7 +65,7 @@ const SignUpScreen = ({ navigation }: SignUpScreenProps) => {
         displayName: displayName.trim(),
         bio: bio.trim() ? bio.trim() : undefined,
         preferredRole,
-        phoneNumber: phoneNumber.trim(),
+        phoneNumber: normalizePhoneNumber(phoneNumber.trim()),
       });
 
       if (result.status === "verification_required") {

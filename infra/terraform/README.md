@@ -79,5 +79,8 @@ aws_sns_monthly_spend_limit = "1"
    `terraform init -reconfigure`. Terraform ≥1.13 emits a deprecation warning for
    `dynamodb_table`; upgrade the pipeline to use a newer init lockfile once
    available.
+- `phone_verification_enabled` defaults to `true`, so ensure SNS credentials and
+   origination numbers are configured; set it to `false` only when developing
+   without SMS delivery.
 - Terraform now provisions an IAM role (`github_actions_role_arn` output) that
    GitHub Actions can assume via OIDC for CI/CD deployments.
