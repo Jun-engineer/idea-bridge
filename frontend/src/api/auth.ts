@@ -36,6 +36,16 @@ interface UpdateProfilePayload {
   phoneNumber?: string | null;
 }
 
+interface UpdateProfileResponse {
+  user: AuthUser | null;
+  verification?: VerificationChallenge;
+}
+
+export interface UpdateProfileResult {
+  user: AuthUser;
+  verification?: VerificationChallenge;
+}
+
 interface VerificationLookupPayload {
   requestId: string;
 }
@@ -92,15 +102,15 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
   return response.user;
 }
 
-export async function updateProfile(payload: UpdateProfilePayload): Promise<AuthUser> {
-  const response = await apiRequest<{ user: AuthUser | null }>("/api/auth/me", {
+export async function updateProfile(payload: UpdateProfilePayload): Promise<UpdateProfileResult> {
+  const response = await apiRequest<UpdateProfileResponse>("/api/auth/me", {
     method: "PUT",
     body: JSON.stringify(payload),
   });
   if (!response.user) {
     throw new Error("Update failed");
   }
-  return response.user;
+  return { user: response.user, verification: response.verification };
 }
 
 export async function deleteAccount(): Promise<void> {

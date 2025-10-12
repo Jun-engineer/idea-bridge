@@ -27,6 +27,7 @@ import {
   startVerification,
   updateProfile,
 } from "../api/auth";
+import type { UpdateProfileResult } from "../api/auth";
 import { setAuthToken } from "../api/http";
 
 const TOKEN_KEY = "ideaBridge.accessToken";
@@ -56,7 +57,7 @@ interface AuthContextValue {
       confirmRoleChange?: boolean;
       phoneNumber?: string | null;
     },
-  ) => Promise<AuthUser>;
+  ) => Promise<UpdateProfileResult>;
   deleteAccount: () => Promise<void>;
   confirmVerification: (input: { requestId: string; code: string }) => Promise<AuthResult>;
   resendVerification: (requestId: string) => Promise<VerificationChallenge>;
@@ -73,6 +74,25 @@ async function persistToken(token: string | null) {
     return;
   }
   await SecureStore.setItemAsync(TOKEN_KEY, token);
+}
+
+function normalizePhoneNumber(value: string): string {
+  const digits = value.replace(/[^\d+]/g, "").replace(/^00/, "+");
+  if (!digits.startsWith("+") && digits.length > 0) {
+    return `+${digits}`;
+  }
+  return digits;
+}
+
+function sanitizePhoneNumberInput(value: string | null | undefined): string | null | undefined {
+  if (value == null) {
+    return value;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return normalizePhoneNumber(trimmed);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -161,7 +181,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       preferredRole: UserRole;
       phoneNumber: string;
     }) => {
-      const result = await registerUser(input);
+      const result = await registerUser({
+        ...input,
+        email: input.email.trim(),
+        displayName: input.displayName.trim(),
+        bio: input.bio?.trim() ? input.bio.trim() : undefined,
+        phoneNumber: normalizePhoneNumber(input.phoneNumber.trim()),
+      });
       return handleAuthResult(result);
     },
     [handleAuthResult],
@@ -205,9 +231,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       confirmRoleChange?: boolean;
       phoneNumber?: string | null;
     }) => {
-      const updated = await updateProfile(input);
-      setUser(updated);
-      return updated;
+      const payload = { ...input } as typeof input & { phoneNumber?: string | null };
+      if (Object.prototype.hasOwnProperty.call(input, "phoneNumber")) {
+        payload.phoneNumber = sanitizePhoneNumberInput(input.phoneNumber) ?? null;
+      }
+      const result = await updateProfile(payload);
+      setUser(result.user);
+      if (result.verification) {
+        setPendingVerification(result.verification);
+      } else if (result.user.phoneVerified) {
+        setPendingVerification(null);
+      }
+      return result;
     },
     [],
   );

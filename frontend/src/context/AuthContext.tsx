@@ -17,6 +17,7 @@ import {
   logoutUser,
   registerUser,
   updateProfile,
+  type UpdateProfileResult,
 } from "../api/auth";
 
 interface AuthContextValue {
@@ -42,7 +43,7 @@ interface AuthContextValue {
       confirmRoleChange?: boolean;
       phoneNumber?: string | null;
     },
-  ) => Promise<AuthUser>;
+  ) => Promise<UpdateProfileResult>;
   deleteAccount: () => Promise<void>;
   confirmVerification: (input: { requestId: string; code: string }) => Promise<AuthResult>;
   resendVerification: (requestId: string) => Promise<VerificationChallenge>;
@@ -122,9 +123,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       confirmRoleChange?: boolean;
       phoneNumber?: string | null;
     }) => {
-      const updated = await updateProfile(input);
-      setUser(updated);
-      return updated;
+      const result = await updateProfile(input);
+      setUser(result.user);
+      if (result.verification) {
+        setPendingVerification(result.verification);
+      }
+      return result;
     },
     [],
   );
@@ -167,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       loading,
-       pendingVerification,
+      pendingVerification,
       login,
       register,
       logout,
@@ -177,7 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       confirmVerification: confirm,
       resendVerification: resend,
       loadVerification: load,
-  startVerification: start,
+      startVerification: start,
     }),
     [
       user,

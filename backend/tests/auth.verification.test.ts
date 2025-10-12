@@ -104,4 +104,70 @@ describe("auth verification flows", () => {
     );
     expect(hasSessionCookie).toBe(true);
   });
+
+  it("rejects phone numbers without a country code", async () => {
+    const app = createApp();
+    const agent = request.agent(app);
+
+    const response = await agent.post("/api/auth/register").send({
+      email: "invalid-phone@example.com",
+      password: "strongpass123",
+      displayName: "Invalid Phone",
+      preferredRole: "developer",
+      phoneNumber: "0430123456",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(/country code/i);
+  });
+
+  it("starts a new verification challenge when the phone number changes", async () => {
+    const app = createApp();
+    const agent = request.agent(app);
+
+    const phone = "+15555551212";
+    const registerResponse = await agent.post("/api/auth/register").send({
+      email: "update-user@example.com",
+      password: "strongpass123",
+      displayName: "Update User",
+      preferredRole: "idea-creator",
+      phoneNumber: phone,
+    });
+
+    expect(registerResponse.status).toBe(201);
+    const initialRequestId: string = registerResponse.body.verification.requestId;
+    const initialRecord = (await getRequest(initialRequestId)) as VerificationRequest | null;
+    expect(initialRecord).not.toBeNull();
+
+    const confirmResponse = await agent.post("/api/auth/verification/confirm").send({
+      requestId: initialRequestId,
+      code: initialRecord?.code,
+    });
+
+    expect(confirmResponse.status).toBe(200);
+    snsProvider.send.mockClear();
+
+    const newPhone = "+15555551333";
+    const updateResponse = await agent.put("/api/auth/me").send({
+      displayName: "Update User",
+      phoneNumber: newPhone,
+    });
+
+    expect(updateResponse.status).toBe(200);
+    expect(updateResponse.body.user.phoneVerified).toBe(false);
+    expect(updateResponse.body.user.pendingVerificationMethod).toBe("phone");
+    expect(updateResponse.body.user.phoneNumber).toBe(newPhone);
+
+    expect(updateResponse.body.verification).toBeDefined();
+    expect(updateResponse.body.verification.method).toBe("phone");
+
+    expect(snsProvider.send).toHaveBeenCalledTimes(1);
+    const publishInput = snsProvider.publishCommand.mock.calls.at(-1)?.[0];
+    expect(publishInput).toMatchObject({ PhoneNumber: newPhone });
+
+    const newRequest = (await getRequest(updateResponse.body.verification.requestId)) as
+      | VerificationRequest
+      | null;
+    expect(newRequest?.destination).toBe(newPhone);
+  });
 });

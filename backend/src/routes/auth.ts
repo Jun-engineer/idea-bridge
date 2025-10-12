@@ -16,6 +16,7 @@ import type { User } from "../types";
 import { requireAuth } from "../middleware/auth";
 import { signAccessToken } from "../utils/jwt";
 import { maskPhone } from "../utils/masking";
+import { sanitizePhoneNumberInput } from "../utils/phone";
 import {
   clearVerificationForUser,
   consumeVerificationCode,
@@ -150,7 +151,17 @@ router.post("/register", async (req, res) => {
   }
 
   const { email, password, displayName, bio, preferredRole, phoneNumber } = parseResult.data;
-  const normalizedPhone = phoneNumber.replace(/\s+/g, "");
+  let normalizedPhone: string;
+  try {
+    normalizedPhone = sanitizePhoneNumberInput(phoneNumber, { requireCountryCode: true }) ?? "";
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Enter a valid phone number including country code.";
+    return res.status(400).json({ message });
+  }
+
+  if (!normalizedPhone) {
+    return res.status(400).json({ message: "Phone number is required." });
+  }
   const existing = await getUserByEmail(email);
   if (existing && !existing.deletedAt) {
     return res.status(409).json({ message: "An account with that email already exists" });
@@ -300,9 +311,19 @@ router.post("/verification/start", requireAuth, async (req, res) => {
     return res.status(400).json({ errors: parseResult.error.flatten() });
   }
 
-  const phoneNumberInput = parseResult.data.phoneNumber?.trim();
+  const phoneNumberInput = parseResult.data.phoneNumber;
   const currentUser = req.authUser!;
-  const phoneNumber = (phoneNumberInput ?? currentUser.phoneNumber ?? "").replace(/\s+/g, "");
+
+  let phoneNumber: string | null;
+  try {
+    phoneNumber = sanitizePhoneNumberInput(
+      phoneNumberInput ?? currentUser.phoneNumber,
+      { requireCountryCode: true },
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Enter a valid phone number including country code.";
+    return res.status(400).json({ message });
+  }
 
   if (!phoneNumber) {
     return res.status(400).json({ message: "Phone number is required for SMS verification" });
@@ -387,6 +408,23 @@ router.put("/me", requireAuth, async (req, res) => {
   const currentUser = req.authUser!;
   const patch: Parameters<typeof updateUser>[1] = {};
 
+  const previousPhone = currentUser.phoneNumber ?? null;
+  let normalizedPhone: string | null | undefined;
+  if (updates.phoneNumber === undefined) {
+    normalizedPhone = undefined;
+  } else if (updates.phoneNumber === null) {
+    normalizedPhone = null;
+  } else {
+    try {
+      normalizedPhone = sanitizePhoneNumberInput(updates.phoneNumber, { requireCountryCode: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Enter a valid phone number including country code.";
+      return res.status(400).json({ message });
+    }
+  }
+  const phoneChanged =
+    normalizedPhone !== undefined && normalizedPhone !== previousPhone;
+
   if (updates.displayName !== undefined) {
     patch.displayName = updates.displayName;
   }
@@ -421,13 +459,23 @@ router.put("/me", requireAuth, async (req, res) => {
     }
   }
 
-  if (updates.phoneNumber !== undefined) {
-    if (updates.phoneNumber === null) {
-      patch.phoneNumber = null;
+  if (normalizedPhone !== undefined) {
+    if (normalizedPhone === null) {
+      if (previousPhone !== null) {
+        patch.phoneNumber = null;
+        patch.phoneVerified = false;
+        patch.pendingVerificationMethod = null;
+      }
+    } else if (normalizedPhone.length === 0) {
+      if (previousPhone !== null) {
+        patch.phoneNumber = null;
+        patch.phoneVerified = false;
+        patch.pendingVerificationMethod = null;
+      }
+    } else if (phoneChanged) {
+      patch.phoneNumber = normalizedPhone;
       patch.phoneVerified = false;
-    } else {
-      patch.phoneNumber = updates.phoneNumber;
-      patch.phoneVerified = false;
+      patch.pendingVerificationMethod = config.phoneVerificationEnabled ? "phone" : null;
     }
   }
 
@@ -439,10 +487,20 @@ router.put("/me", requireAuth, async (req, res) => {
 
   req.authUser = user;
 
+  if (config.phoneVerificationEnabled && phoneChanged && normalizedPhone) {
+    try {
+      const verification = await issuePhoneVerification(user);
+      return res.json({ user: sanitizeUser(user), verification });
+    } catch (err) {
+      console.error("Failed to dispatch verification challenge", err);
+      return res.status(500).json({ message: "Failed to initiate verification" });
+    }
+  }
+
   return res.json({ user: sanitizeUser(user) });
 });
 
-router.delete("/me", requireAuth, async (req, res) => {
+router.delete("/me", requireAuth, async (req: Express.Request, res: Response) => {
   const user = await softDeleteUser(req.authUser!.id);
   if (user) {
     await destroyAllSessionsForUser(user.id);

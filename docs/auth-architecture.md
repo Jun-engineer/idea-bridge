@@ -47,6 +47,7 @@ All routes are prefixed with `/api/auth`:
 - Every successful registration or login for an unverified account issues an SMS verification request and returns `{ status: "verification_required" }` with a masked destination and countdown timers.
 - Users cannot obtain an authenticated session until they confirm the one-time code via `/verification/confirm`; the response sets the session cookie + JWT.
 - Authenticated users can request new SMS challenges via `/verification/start` without dropping their current session.
+- Updating the phone number through `/me` reuses the existing profile data when unchanged and triggers a fresh SMS challenge only when the number actually differs (normalized to E.164).
 - Middleware validates the JWT from the session cookie on each request and attaches `req.authUser` when present.
 - SMS delivery uses Amazon SNS. Configure `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, optional `AWS_SESSION_TOKEN`, `AWS_SNS_SENDER_ID`, `AWS_SNS_ORIGINATION_NUMBER`, and `AWS_SNS_SMS_TYPE` to enable outbound messages. When unset, the API logs the code and returns a 201 response but no SMS is sent.
 

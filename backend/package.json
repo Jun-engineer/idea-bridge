@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
     "lint": "eslint src --ext .ts",
-    "test": "NODE_ENV=test JWT_SECRET=test-secret SESSION_COOKIE_NAME=sid AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=secret AWS_SNS_SENDER_ID=IdeaBridge vitest run"
+    "test": "NODE_ENV=test JWT_SECRET=test-secret SESSION_COOKIE_NAME=sid AWS_REGION=us-east-1 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=secret AWS_SNS_SENDER_ID=IdeaBridge vitest run",
+    "remove-user": "node -r ts-node/register scripts/removeUser.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.908.0",

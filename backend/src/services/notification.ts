@@ -54,7 +54,7 @@ export async function sendSmsVerification(destination: string, code: string): Pr
   const message = `IdeaBridge verification code: ${code} (expires in ${ttlMinutes} minute${ttlMinutes === 1 ? "" : "s"}).`;
 
   const attributes: Record<string, { DataType: "String"; StringValue: string }> = {
-    "AWS.SNS.SMS.MessageType": {
+    "AWS.SNS.SMS.SMSType": {
       DataType: "String",
       StringValue: config.aws.sns.smsType,
     },
@@ -64,13 +64,6 @@ export async function sendSmsVerification(destination: string, code: string): Pr
     attributes["AWS.SNS.SMS.SenderID"] = {
       DataType: "String",
       StringValue: config.aws.sns.senderId,
-    };
-  }
-
-  if (config.aws.sns.originationNumber) {
-    attributes["AWS.MM.SMS.OriginationNumber"] = {
-      DataType: "String",
-      StringValue: config.aws.sns.originationNumber,
     };
   }
 

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { normalizePhoneNumber } from "../utils/phone";
 import type { UserRole } from "../types/models";
 
 export function SignUpPage() {
@@ -38,11 +39,12 @@ export function SignUpPage() {
     try {
       setSubmitting(true);
       setError(null);
-      const phoneNumber = String(formData.get("phoneNumber") ?? "").trim();
-      if (!phoneNumber) {
+      const phoneNumberRaw = String(formData.get("phoneNumber") ?? "").trim();
+      if (!phoneNumberRaw) {
         setError("Phone number is required for SMS verification.");
         return;
       }
+      const phoneNumber = normalizePhoneNumber(phoneNumberRaw);
       const result = await register({
         email,
         password,
