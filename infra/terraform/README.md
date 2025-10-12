@@ -27,8 +27,9 @@ This configuration provisions the core AWS resources for the IdeaBridge serverle
    terraform init
    terraform apply -auto-approve
    ```
-   Capture the `state_bucket_name` and `lock_table_name` outputs if you plan to
-   customise the backend configuration.
+   Capture the `state_bucket_name` output if you plan to customise the backend
+   configuration; state locking now uses the S3 backend lockfile introduced in
+   Terraform 1.13, so a DynamoDB lock table is no longer required.
 
 2. **Switch to the main deployment**
    ```bash
@@ -73,9 +74,9 @@ aws_sns_monthly_spend_limit = "1"
 - Secrets are passed directly through environment variables for brevity. Consider migrating them to AWS Secrets Manager or SSM Parameter Store and referencing them via Lambda environment variables or extensions.
 - Monthly SNS spend limit defaults to "1" (sandbox friendly). Increase only after
    AWS approves a higher limit.
-- The Terraform backend is configured to use an S3 bucket (`idea-bridge-prod-tf-state`)
-   and DynamoDB lock table (`idea-bridge-prod-tf-locks`). If you override the
-   bootstrap names, update `backend.tf` accordingly before re-running
-   `terraform init -reconfigure`.
+- The Terraform backend now uses the S3 bucket (`idea-bridge-prod-tf-state`) with
+   the built-in lockfile (`use_lockfile = true`). If you previously relied on a
+   DynamoDB lock table, run `terraform init -migrate-state` once after pulling
+   this change to migrate your backend configuration.
 - Terraform now provisions an IAM role (`github_actions_role_arn` output) that
    GitHub Actions can assume via OIDC for CI/CD deployments.

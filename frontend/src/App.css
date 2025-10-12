@@ -205,3 +205,59 @@
   display: grid;
   gap: 0.75rem;
 }
+
+@media (max-width: 900px) {
+  .page {
+    gap: 1.25rem;
+  }
+
+  .grid {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+
+  .section__header {
+    gap: 0.6rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .page {
+    gap: 1rem;
+  }
+
+  .page--padded {
+    padding-bottom: 2.5rem;
+  }
+
+  .page--narrow {
+    width: min(100%, 540px);
+    margin: 0 auto 3rem;
+    padding: 0 1rem 3rem;
+  }
+
+  .page__header {
+    text-align: left;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .section__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .button {
+    width: 100%;
+    text-align: center;
+  }
+
+  .form {
+    gap: 0.85rem;
+  }
+
+  .tag-row {
+    justify-content: flex-start;
+  }
+}
