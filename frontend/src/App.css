@@ -93,6 +93,20 @@
   font-weight: 600;
 }
 
+.phone-input-group {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.phone-input-group select {
+  min-width: 9rem;
+}
+
+.phone-input-group select,
+.phone-input-group input {
+  flex: 1;
+}
+
 .form input,
 .form textarea,
 .form select {

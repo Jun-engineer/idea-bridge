@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { normalizePhoneNumber } from "../utils/phone";
+import { COUNTRY_DIAL_CODES, DEFAULT_COUNTRY_DIAL_CODE, composePhoneNumber } from "../utils/phone";
 import type { UserRole } from "../types/models";
 
 export function SignUpPage() {
@@ -10,6 +10,14 @@ export function SignUpPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const defaultCountryCode = useMemo(
+    () =>
+      COUNTRY_DIAL_CODES.find((entry) => entry.code === DEFAULT_COUNTRY_DIAL_CODE)?.code ??
+      COUNTRY_DIAL_CODES[0].code,
+    [],
+  );
+  const [countryCode, setCountryCode] = useState(defaultCountryCode);
+  const [phoneLocal, setPhoneLocal] = useState("");
 
   if (user) {
     return <Navigate to="/" replace />;
@@ -36,15 +44,25 @@ export function SignUpPage() {
       return;
     }
 
+    const localNumber = phoneLocal.trim();
+    if (!localNumber) {
+      setError("Phone number is required for SMS verification.");
+      return;
+    }
+
+    let phoneNumber: string;
+    try {
+      phoneNumber = composePhoneNumber(countryCode, localNumber);
+      setPhoneLocal(phoneNumber.slice(countryCode.length));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Enter a valid phone number";
+      setError(message);
+      return;
+    }
+
     try {
       setSubmitting(true);
       setError(null);
-      const phoneNumberRaw = String(formData.get("phoneNumber") ?? "").trim();
-      if (!phoneNumberRaw) {
-        setError("Phone number is required for SMS verification.");
-        return;
-      }
-      const phoneNumber = normalizePhoneNumber(phoneNumberRaw);
       const result = await register({
         email,
         password,
@@ -109,13 +127,30 @@ export function SignUpPage() {
         </label>
         <label>
           Phone number
-          <input
-            type="tel"
-            name="phoneNumber"
-            placeholder="+1 555 555 1212"
-            required
-            disabled={submitting}
-          />
+          <div className="phone-input-group">
+            <select
+              name="countryCode"
+              value={countryCode}
+              onChange={(event) => setCountryCode(event.target.value)}
+              disabled={submitting}
+            >
+              {COUNTRY_DIAL_CODES.map((entry) => (
+                <option key={`${entry.code}-${entry.label}`} value={entry.code}>
+                  {entry.label}
+                </option>
+              ))}
+            </select>
+            <input
+              type="tel"
+              name="phoneLocal"
+              value={phoneLocal}
+              onChange={(event) => setPhoneLocal(event.target.value)}
+              placeholder="412 345 678"
+              required
+              disabled={submitting}
+              inputMode="numeric"
+            />
+          </div>
           <span className="helper">We&apos;ll send your verification code via SMS.</span>
         </label>
         <label>

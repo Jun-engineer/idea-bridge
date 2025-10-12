@@ -1,5 +1,18 @@
+const ZERO_TRUNK_COUNTRY_CODES = ["61", "44", "82"];
+
 export function normalizePhoneNumber(value: string): string {
-  const digits = value.replace(/[^\d+]/g, "").replace(/^00/, "+");
+  let digits = value.replace(/[^\d+]/g, "").replace(/^00/, "+");
+
+  ZERO_TRUNK_COUNTRY_CODES.forEach((code) => {
+    const prefix = `+${code}`;
+    if (digits.startsWith(prefix)) {
+      const remainder = digits.slice(prefix.length);
+      if (remainder.startsWith("0") && remainder.length > 1) {
+        digits = `${prefix}${remainder.slice(1)}`;
+      }
+    }
+  });
+
   return digits;
 }
 

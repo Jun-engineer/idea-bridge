@@ -143,6 +143,23 @@ describe("auth verification flows", () => {
     expect(confirmResponse.body.user.phoneVerified).toBe(true);
   });
 
+  it("strips trunk zeros from E.164 submissions", async () => {
+    const app = createApp();
+    const agent = request.agent(app);
+
+    const response = await agent.post("/api/auth/register").send({
+      email: "trunk@example.com",
+      password: "strongpass123",
+      displayName: "Trunk Test",
+      preferredRole: "developer",
+      phoneNumber: "+610412345678",
+    });
+
+    expect(response.status).toBe(201);
+    const publishInput = snsProvider.publishCommand.mock.calls.at(-1)?.[0];
+    expect(publishInput).toMatchObject({ PhoneNumber: "+61412345678" });
+  });
+
   it("rejects phone numbers without a country code", async () => {
     const app = createApp();
     const agent = request.agent(app);

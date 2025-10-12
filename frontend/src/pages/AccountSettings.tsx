@@ -1,6 +1,12 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { normalizePhoneNumber, sanitizePhoneNumberInput } from "../utils/phone";
+import {
+  COUNTRY_DIAL_CODES,
+  DEFAULT_COUNTRY_DIAL_CODE,
+  composePhoneNumber,
+  normalizePhoneNumber,
+  splitPhoneNumber,
+} from "../utils/phone";
 import { useAuth } from "../context/AuthContext";
 import type { UserRole } from "../types/models";
 
@@ -17,7 +23,14 @@ export function AccountSettingsPage() {
   const [bio, setBio] = useState("");
   const [preferredRole, setPreferredRole] = useState<UserRole | "">("");
   const [confirmRoleChange, setConfirmRoleChange] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const defaultCountryCode = useMemo(
+    () =>
+      COUNTRY_DIAL_CODES.find((entry) => entry.code === DEFAULT_COUNTRY_DIAL_CODE)?.code ??
+      COUNTRY_DIAL_CODES[0].code,
+    [],
+  );
+  const [countryCode, setCountryCode] = useState(defaultCountryCode);
+  const [phoneLocal, setPhoneLocal] = useState("");
   const [saving, setSaving] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -32,7 +45,9 @@ export function AccountSettingsPage() {
       setBio(user.bio ?? "");
       setPreferredRole(user.preferredRole ?? "");
       setConfirmRoleChange(false);
-      setPhoneNumber(user.phoneNumber ?? "");
+      const { countryCode: userCountryCode, nationalNumber } = splitPhoneNumber(user.phoneNumber);
+      setCountryCode(userCountryCode);
+      setPhoneLocal(nationalNumber);
     }
   }, [user]);
 
@@ -81,7 +96,20 @@ export function AccountSettingsPage() {
     }
 
     const previousPhone = user.phoneNumber ?? null;
-    const nextPhone = sanitizePhoneNumberInput(phoneNumber);
+    let nextPhone: string | null = null;
+    const localCandidate = phoneLocal.trim();
+
+    if (localCandidate.length > 0) {
+      try {
+        const combined = composePhoneNumber(countryCode, localCandidate);
+        nextPhone = combined;
+        setPhoneLocal(combined.slice(countryCode.length));
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Enter a valid phone number";
+        setError(message);
+        return;
+      }
+    }
 
     try {
       setSaving(true);
@@ -196,14 +224,30 @@ export function AccountSettingsPage() {
     try {
       setVerificationError(null);
       setVerificationMessage("Sending verification code…");
-      const candidate = phoneNumber.trim().length > 0 ? phoneNumber : user.phoneNumber ?? "";
-      const sanitized = sanitizePhoneNumberInput(candidate);
+      const trimmedLocal = phoneLocal.trim();
+      let sanitized: string | null = null;
+
+      if (trimmedLocal.length > 0) {
+        try {
+          const combined = composePhoneNumber(countryCode, trimmedLocal);
+          sanitized = combined;
+          setPhoneLocal(combined.slice(countryCode.length));
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Enter a valid phone number";
+          setVerificationError(message);
+          setVerificationMessage(null);
+          return;
+        }
+      } else if (user.phoneNumber) {
+        sanitized = user.phoneNumber;
+      }
+
       if (!sanitized) {
         setVerificationMessage(null);
         setVerificationError("Add a phone number above before requesting SMS verification.");
         return;
       }
-  const result = await startVerification({ phoneNumber: sanitized });
+      const result = await startVerification({ phoneNumber: sanitized });
       if (result.status === "authenticated") {
         setVerificationMessage("Already verified—no code required.");
         return;
@@ -255,14 +299,29 @@ export function AccountSettingsPage() {
         </label>
         <label>
           Phone number <span className="helper">(optional)</span>
-          <input
-            type="tel"
-            name="phoneNumber"
-            value={phoneNumber}
-            onChange={(event) => setPhoneNumber(event.target.value)}
-            placeholder="+1 555 555 1212"
-            disabled={saving || signingOut || removing}
-          />
+          <div className="phone-input-group">
+            <select
+              name="countryCode"
+              value={countryCode}
+              onChange={(event) => setCountryCode(event.target.value)}
+              disabled={saving || signingOut || removing}
+            >
+              {COUNTRY_DIAL_CODES.map((entry) => (
+                <option key={`${entry.code}-${entry.label}`} value={entry.code}>
+                  {entry.label}
+                </option>
+              ))}
+            </select>
+            <input
+              type="tel"
+              name="phoneLocal"
+              value={phoneLocal}
+              onChange={(event) => setPhoneLocal(event.target.value)}
+              placeholder="412 345 678"
+              disabled={saving || signingOut || removing}
+              inputMode="numeric"
+            />
+          </div>
           <span className="helper">Save changes before sending an SMS verification code.</span>
         </label>
         <label>
@@ -324,7 +383,12 @@ export function AccountSettingsPage() {
               className="button button--secondary"
               type="button"
               onClick={() => void launchVerification()}
-              disabled={saving || signingOut || removing || (!user.phoneNumber && phoneNumber.trim().length === 0)}
+              disabled={
+                saving ||
+                signingOut ||
+                removing ||
+                (!user.phoneNumber && phoneLocal.trim().length === 0)
+              }
             >
               {user.phoneVerified ? "Re-send SMS code" : "Send SMS code"}
             </button>
