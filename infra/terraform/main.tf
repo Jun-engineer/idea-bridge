@@ -381,7 +381,10 @@ data "aws_iam_policy_document" "github_actions_permissions" {
   statement {
     sid       = "CloudFrontInvalidate"
     effect    = "Allow"
-    actions   = ["cloudfront:CreateInvalidation"]
+    actions   = [
+      "cloudfront:CreateInvalidation",
+      "cloudfront:UpdateDistribution"
+    ]
     resources = ["arn:${data.aws_partition.current.partition}:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${aws_cloudfront_distribution.frontend.id}"]
   }
 
