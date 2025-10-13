@@ -140,7 +140,7 @@ const SubmitIdeaScreen = ({ navigation }: SubmitIdeaScreenProps) => {
 
         <Text style={styles.label}>Idea title</Text>
         <TextInput
-          placeholder="Mindful commute companion"
+          placeholder="Your idea title"
           value={title}
           onChangeText={setTitle}
           style={styles.input}

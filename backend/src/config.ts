@@ -13,7 +13,7 @@ function getEnvVar(name: RequiredVar): string {
 export const config = {
   jwtSecret: getEnvVar("JWT_SECRET"),
   sessionCookieName: getEnvVar("SESSION_COOKIE_NAME"),
-  accessTokenTtlSeconds: Number(process.env.ACCESS_TOKEN_TTL_SECONDS ?? 900),
+  accessTokenTtlSeconds: Number(process.env.ACCESS_TOKEN_TTL_SECONDS ?? 60 * 60 * 12),
   corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
   sessionCookieSecure: process.env.NODE_ENV === "production",
   roleChangeCooldownSeconds: Number(process.env.ROLE_CHANGE_COOLDOWN_SECONDS ?? 60 * 60 * 24),
