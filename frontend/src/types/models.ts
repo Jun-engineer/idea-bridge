@@ -71,5 +71,5 @@ export interface VerificationChallenge {
 }
 
 export type AuthResult =
-  | { status: "authenticated"; user: AuthUser }
+  | { status: "authenticated"; user: AuthUser; token?: string | null }
   | { status: "verification_required"; verification: VerificationChallenge };
