@@ -1,21 +1,21 @@
 import type { AppSubmission, DeveloperProfile, Idea, IdeaCreatorProfile } from "./types";
 
 const ideaCreator: IdeaCreatorProfile = {
-  id: "creator-1",
-  username: "john_doe",
+  id: "creator-placeholder",
+  username: "idea_creator",
   role: "idea-creator",
-  bio: "Product designer exploring new app concepts.",
+  bio: "",
   ideas: [],
 };
 
 const developer: DeveloperProfile = {
-  id: "dev-1",
-  username: "dev_jane",
+  id: "developer-placeholder",
+  username: "developer_member",
   role: "developer",
-  bio: "Full-stack engineer building impactful products.",
-  portfolioUrl: "https://janedev.dev",
+  bio: "",
+  portfolioUrl: "",
   apps: [],
-  totalLikes: 56,
+  totalLikes: 0,
 };
 
 export const mockIdeas: Idea[] = [];
