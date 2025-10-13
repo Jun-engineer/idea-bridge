@@ -1,10 +1,10 @@
-import { apiRequest } from "./http";
+import { apiRequest, storeAuthToken } from "./http";
 import type { AuthResult, AuthUser, UserRole, VerificationChallenge } from "../types/models";
 
 interface AuthResponseAuthenticated {
   status: "authenticated";
   user: AuthUser;
-  token?: string;
+  token?: string | null;
 }
 
 interface AuthResponseVerification {
@@ -60,12 +60,15 @@ interface VerificationStartPayload {
 
 function mapAuthResponse(response: AuthResponse): AuthResult {
   if (response.status === "authenticated") {
+    storeAuthToken(response.token ?? null);
     return {
       status: "authenticated",
       user: response.user,
+      token: response.token ?? null,
     };
   }
 
+  storeAuthToken(null);
   return {
     status: "verification_required",
     verification: response.verification,
@@ -93,6 +96,7 @@ export async function logoutUser(): Promise<void> {
     method: "POST",
     skipJson: true,
   });
+  storeAuthToken(null);
 }
 
 export async function fetchCurrentUser(): Promise<AuthUser | null> {

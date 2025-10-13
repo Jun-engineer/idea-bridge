@@ -6,6 +6,7 @@ import type {
   UserRole,
   VerificationChallenge,
 } from "../types/models";
+import { initializeAuthTokenFromStorage } from "../api/http";
 import {
   deleteAccount,
   fetchCurrentUser,
@@ -70,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    initializeAuthTokenFromStorage();
     void refresh();
   }, [refresh]);
 
