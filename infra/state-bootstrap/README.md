@@ -33,3 +33,5 @@ remote state when using the main deployment under `../terraform`.
 > ⚠️ After the bucket is in use by Terraform's backend, **do not** destroy it.
 > The `prevent_destroy` lifecycle rule should be enabled manually or enforced
 > via separate policy controls outside of this bootstrap module.
+
+For a complete picture of the production stack, consult [`../../docs/aws-infrastructure.md`](../../docs/aws-infrastructure.md) and the accompanying architecture diagram in [`../../docs/aws-architecture.drawio`](../../docs/aws-architecture.drawio).

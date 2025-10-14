@@ -1,6 +1,6 @@
 # Terraform Deployment (AWS Serverless)
 
-This configuration provisions the core AWS resources for the IdeaBridge serverless architecture in the **ap-northeast-1 (Tokyo)** region and assumes AWS account **085141726968**. It creates:
+This configuration provisions the core AWS resources for the IdeaBridge serverless architecture in the **ap-northeast-1 (Tokyo)** region and assumes AWS account **085141726968**. Refer to `docs/aws-infrastructure.md` for the high-level blueprint. The module creates:
 
 - An S3 bucket + CloudFront distribution for the React SPA
 - A Lambda function (Express API via `@vendia/serverless-express`)
@@ -19,6 +19,7 @@ This configuration provisions the core AWS resources for the IdeaBridge serverle
    npm prune --omit=dev
    zip -r idea-bridge-backend.zip dist node_modules package.json package-lock.json
    ```
+   The archive is gitignored; generate it on demand before each deployment.
 
 ## Usage
 1. **Bootstrap remote state (one-time)**
@@ -84,3 +85,5 @@ aws_sns_monthly_spend_limit = "1"
    without SMS delivery.
 - Terraform now provisions an IAM role (`github_actions_role_arn` output) that
    GitHub Actions can assume via OIDC for CI/CD deployments.
+- The AWS architecture diagram (`../../docs/aws-architecture.drawio`) visualises
+   the resources deployed by this stack using the AWS 2025 icon set.

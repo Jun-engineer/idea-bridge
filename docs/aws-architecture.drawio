@@ -1,0 +1,91 @@
+<mxfile host="app.diagrams.net" modified="2025-10-15T00:00:00.000Z" agent="7.0 (Linux)" version="24.7.7" type="device">
+  <diagram id="aws-arch" name="AWS Architecture">
+    <mxGraphModel dx="1420" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="section_clients" value="Client Applications" style="swimlane;horizontal=0;rounded=1;glass=0;strokeColor=#879196;fillColor=#F4F5F7;fontColor=#232F3E;fontSize=16;startSize=32;align=center;verticalAlign=top;spacingTop=36;" vertex="1" parent="1">
+          <mxGeometry x="120" y="280" width="180" height="320" as="geometry" />
+        </mxCell>
+        <mxCell id="browser" value="Web Browser" style="shape=rectangle;rounded=1;fillColor=#FFFFFF;strokeColor=#879196;fontColor=#232F3E;fontSize=13;whiteSpace=wrap;" vertex="1" parent="section_clients">
+          <mxGeometry x="30" y="60" width="120" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="mobile" value="Mobile App" style="shape=rectangle;rounded=1;fillColor=#FFFFFF;strokeColor=#879196;fontColor=#232F3E;fontSize=13;whiteSpace=wrap;" vertex="1" parent="section_clients">
+          <mxGeometry x="30" y="170" width="120" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="section_edge" value="Frontend Edge" style="swimlane;horizontal=0;rounded=1;glass=0;strokeColor=#879196;fillColor=#F4F5F7;fontColor=#232F3E;fontSize=16;startSize=32;align=center;verticalAlign=top;spacingTop=36;" vertex="1" parent="1">
+          <mxGeometry x="360" y="180" width="220" height="420" as="geometry" />
+        </mxCell>
+        <mxCell id="cloudfront" value="Amazon CloudFront" style="shape=mxgraph.aws2025.AmazonCloudFront;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;whiteSpace=wrap;fontColor=#232F3E;fontSize=12;" vertex="1" parent="section_edge">
+          <mxGeometry x="60" y="60" width="100" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="Amazon S3" style="shape=mxgraph.aws2025.AmazonS3;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;whiteSpace=wrap;fontColor=#232F3E;fontSize=12;" vertex="1" parent="section_edge">
+          <mxGeometry x="60" y="220" width="100" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="section_api" value="API Layer" style="swimlane;horizontal=0;rounded=1;glass=0;strokeColor=#879196;fillColor=#F4F5F7;fontColor=#232F3E;fontSize=16;startSize=32;align=center;verticalAlign=top;spacingTop=36;" vertex="1" parent="1">
+          <mxGeometry x="630" y="120" width="240" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="apigw" value="Amazon API Gateway" style="shape=mxgraph.aws2025.AmazonAPIGateway;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;whiteSpace=wrap;fontColor=#232F3E;fontSize=12;" vertex="1" parent="section_api">
+          <mxGeometry x="70" y="60" width="120" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="lambda" value="AWS Lambda" style="shape=mxgraph.aws2025.AWSLambda;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;whiteSpace=wrap;fontColor=#232F3E;fontSize=12;" vertex="1" parent="section_api">
+          <mxGeometry x="70" y="200" width="120" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="dynamodb" value="Amazon DynamoDB" style="shape=mxgraph.aws2025.AmazonDynamoDB;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;whiteSpace=wrap;fontColor=#232F3E;fontSize=12;" vertex="1" parent="section_api">
+          <mxGeometry x="70" y="340" width="120" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="section_messaging" value="Messaging" style="swimlane;horizontal=0;rounded=1;glass=0;strokeColor=#879196;fillColor=#F4F5F7;fontColor=#232F3E;fontSize=16;startSize=32;align=center;verticalAlign=top;spacingTop=36;" vertex="1" parent="1">
+          <mxGeometry x="920" y="280" width="200" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="sns" value="Amazon SNS" style="shape=mxgraph.aws2025.AmazonSNS;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;whiteSpace=wrap;fontColor=#232F3E;fontSize=12;" vertex="1" parent="section_messaging">
+          <mxGeometry x="50" y="60" width="100" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="users" value="SMS to Users" style="shape=rectangle;rounded=1;fillColor=#FFFFFF;strokeColor=#879196;fontColor=#232F3E;fontSize=13;whiteSpace=wrap;" vertex="1" parent="section_messaging">
+          <mxGeometry x="40" y="170" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="section_ci" value="Delivery Pipeline" style="swimlane;horizontal=0;rounded=1;glass=0;strokeColor=#879196;fillColor=#F4F5F7;fontColor=#232F3E;fontSize=16;startSize=32;align=center;verticalAlign=top;spacingTop=36;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="220" width="240" height="360" as="geometry" />
+        </mxCell>
+        <mxCell id="codepipeline" value="AWS CodePipeline" style="shape=mxgraph.aws2025.AWSCodePipeline;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;whiteSpace=wrap;fontColor=#232F3E;fontSize=12;" vertex="1" parent="section_ci">
+          <mxGeometry x="70" y="60" width="120" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="codebuild" value="AWS CodeBuild" style="shape=mxgraph.aws2025.AWSCodeBuild;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;whiteSpace=wrap;fontColor=#232F3E;fontSize=12;" vertex="1" parent="section_ci">
+          <mxGeometry x="70" y="200" width="120" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_to_browser" edge="1" parent="1" source="browser" target="cloudfront" style="endArrow=block;endFill=1;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_to_mobile" edge="1" parent="1" source="mobile" target="apigw" style="endArrow=block;endFill=1;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_cf_to_s3" edge="1" parent="1" source="cloudfront" target="s3" style="endArrow=block;endFill=1;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_cf_to_apigw" edge="1" parent="1" source="cloudfront" target="apigw" style="endArrow=block;endFill=1;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_apigw_to_lambda" edge="1" parent="1" source="apigw" target="lambda" style="endArrow=block;endFill=1;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_lambda_to_dynamo" edge="1" parent="1" source="lambda" target="dynamodb" style="endArrow=block;endFill=1;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_lambda_to_sns" edge="1" parent="1" source="lambda" target="sns" style="endArrow=block;endFill=1;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_sns_to_users" edge="1" parent="1" source="sns" target="users" style="endArrow=block;endFill=1;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_codepipeline_to_s3" edge="1" parent="1" source="codepipeline" target="s3" style="endArrow=block;endFill=1;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_codepipeline_to_lambda" edge="1" parent="1" source="codepipeline" target="lambda" style="endArrow=block;endFill=1;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_codebuild_to_codepipeline" edge="1" parent="1" source="codebuild" target="codepipeline" style="endArrow=block;endFill=1;strokeColor=#232F3E;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
