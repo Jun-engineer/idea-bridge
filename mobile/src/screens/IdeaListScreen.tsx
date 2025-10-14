@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -22,6 +22,19 @@ const IdeaListScreen = ({ navigation }: IdeaListScreenProps) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          style={styles.headerAction}
+          onPress={() => navigation.navigate("AccountSettings")}
+        >
+          <Text style={styles.headerActionText}>Account</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   const loadIdeas = useCallback(async () => {
     try {
@@ -114,6 +127,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#f7f7f7",
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  headerAction: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "#1f2937",
+  },
+  headerActionText: {
+    color: "#ffffff",
+    fontWeight: "600",
   },
   centered: {
     flex: 1,

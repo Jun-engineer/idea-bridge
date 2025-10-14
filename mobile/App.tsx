@@ -12,6 +12,7 @@ import IdeaDetailScreen from "./src/screens/IdeaDetailScreen";
 import SubmitIdeaScreen from "./src/screens/SubmitIdeaScreen";
 import SubmitAppScreen from "./src/screens/SubmitAppScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
+import AccountScreen from "./src/screens/AccountScreen";
 import SignInScreen from "./src/screens/SignInScreen";
 import SignUpScreen from "./src/screens/SignUpScreen";
 import VerifyContactScreen from "./src/screens/VerifyContactScreen";
@@ -48,6 +49,11 @@ function RootNavigator() {
           <Stack.Screen name="SubmitIdea" component={SubmitIdeaScreen} options={{ title: "Submit Idea" }} />
           <Stack.Screen name="SubmitApp" component={SubmitAppScreen} options={{ title: "Submit App" }} />
           <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: "Profile" }} />
+          <Stack.Screen
+            name="AccountSettings"
+            component={AccountScreen}
+            options={{ title: "Account Settings" }}
+          />
           <Stack.Screen name="VerifyContact" component={VerifyContactScreen} options={{ title: "Verify Phone" }} />
         </>
       ) : (

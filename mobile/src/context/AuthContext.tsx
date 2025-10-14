@@ -29,6 +29,7 @@ import {
 } from "../api/auth";
 import type { UpdateProfileResult } from "../api/auth";
 import { setAuthToken } from "../api/http";
+import { normalizePhoneNumber, sanitizePhoneNumberInput } from "../utils/phone";
 
 const TOKEN_KEY = "ideaBridge.accessToken";
 
@@ -74,25 +75,6 @@ async function persistToken(token: string | null) {
     return;
   }
   await SecureStore.setItemAsync(TOKEN_KEY, token);
-}
-
-function normalizePhoneNumber(value: string): string {
-  const digits = value.replace(/[^\d+]/g, "").replace(/^00/, "+");
-  if (!digits.startsWith("+") && digits.length > 0) {
-    return `+${digits}`;
-  }
-  return digits;
-}
-
-function sanitizePhoneNumberInput(value: string | null | undefined): string | null | undefined {
-  if (value == null) {
-    return value;
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  return normalizePhoneNumber(trimmed);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

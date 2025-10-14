@@ -1,4 +1,4 @@
-const DEFAULT_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+import { resolveApiBaseUrl, getCachedApiBaseUrl } from "./baseUrl";
 
 type ApiRequestOptions = RequestInit & {
   skipJson?: boolean;
@@ -26,7 +26,8 @@ async function apiRequest<T = unknown>(path: string, options: ApiRequestOptions 
     headers.Authorization = `Bearer ${accessToken}`;
   }
 
-  const response = await fetch(`${DEFAULT_BASE_URL}${path}`, {
+  const baseUrl = await resolveApiBaseUrl();
+  const response = await fetch(`${baseUrl}${path}`, {
     ...rest,
     headers,
   });
@@ -54,4 +55,4 @@ async function apiRequest<T = unknown>(path: string, options: ApiRequestOptions 
   }
 }
 
-export { DEFAULT_BASE_URL, apiRequest };
+export { apiRequest, resolveApiBaseUrl, getCachedApiBaseUrl };
