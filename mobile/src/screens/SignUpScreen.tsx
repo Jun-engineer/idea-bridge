@@ -15,6 +15,13 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import { useAuth } from "../context/AuthContext";
 import type { RootStackParamList } from "../navigation/types";
+import {
+  COUNTRY_DIAL_CODES,
+  DEFAULT_COUNTRY_DIAL_CODE,
+  composePhoneNumber,
+  normalizePhoneNumber,
+  splitPhoneNumber,
+} from "../utils/phone";
 import type { UserRole } from "../types";
 
 interface SignUpScreenProps extends NativeStackScreenProps<RootStackParamList, "SignUp"> {}
@@ -24,29 +31,29 @@ const roleOptions: Array<{ label: string; value: UserRole }> = [
   { label: "Developer / builder", value: "developer" },
 ];
 
-function normalizePhoneNumber(value: string): string {
-  const digits = value.replace(/[^\d+]/g, "").replace(/^00/, "+");
-  if (!digits.startsWith("+") && digits.length > 0) {
-    return `+${digits}`;
-  }
-  return digits;
-}
-
 const SignUpScreen = ({ navigation }: SignUpScreenProps) => {
   const { register } = useAuth();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const defaultCountryCode = useMemo(
+    () =>
+      COUNTRY_DIAL_CODES.find((entry) => entry.code === DEFAULT_COUNTRY_DIAL_CODE)?.code ??
+      COUNTRY_DIAL_CODES[0].code,
+    [],
+  );
+  const [countryCode, setCountryCode] = useState(defaultCountryCode);
+  const [phoneLocal, setPhoneLocal] = useState("");
   const [bio, setBio] = useState("");
   const [preferredRole, setPreferredRole] = useState<UserRole | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const roleItems = useMemo(() => roleOptions, []);
 
   const handleSubmit = useCallback(async () => {
-    if (!displayName.trim() || !email.trim() || !password || !preferredRole || !phoneNumber.trim()) {
+    if (!displayName.trim() || !email.trim() || !password || !preferredRole || !phoneLocal.trim()) {
       setError("Please fill out all required fields.");
       return;
     }
@@ -59,13 +66,23 @@ const SignUpScreen = ({ navigation }: SignUpScreenProps) => {
     try {
       setSubmitting(true);
       setError(null);
+      let composedPhone: string;
+      try {
+        composedPhone = composePhoneNumber(countryCode, phoneLocal.trim());
+        setPhoneLocal(composedPhone.slice(countryCode.length));
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Enter a valid phone number";
+        setError(message);
+        return;
+      }
+
       const result = await register({
         email: email.trim(),
         password,
         displayName: displayName.trim(),
         bio: bio.trim() ? bio.trim() : undefined,
         preferredRole,
-        phoneNumber: normalizePhoneNumber(phoneNumber.trim()),
+        phoneNumber: composedPhone,
       });
 
       if (result.status === "verification_required") {
@@ -82,7 +99,21 @@ const SignUpScreen = ({ navigation }: SignUpScreenProps) => {
     } finally {
       setSubmitting(false);
     }
-  }, [displayName, email, password, preferredRole, phoneNumber, bio, register, navigation]);
+  }, [displayName, email, password, preferredRole, phoneLocal, countryCode, bio, register, navigation]);
+
+  const handlePhoneChange = useCallback(
+    (value: string) => {
+      if (value.trim().startsWith("+")) {
+        const normalized = normalizePhoneNumber(value);
+        const parts = splitPhoneNumber(normalized);
+        setCountryCode(parts.countryCode);
+        setPhoneLocal(parts.nationalNumber);
+        return;
+      }
+      setPhoneLocal(value);
+    },
+    [],
+  );
 
   return (
     <KeyboardAvoidingView
@@ -123,27 +154,50 @@ const SignUpScreen = ({ navigation }: SignUpScreenProps) => {
 
         <View style={styles.field}>
           <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Use at least 8 characters"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            editable={!submitting}
-          />
+          <View style={styles.passwordWrapper}>
+            <TextInput
+              style={[styles.input, styles.passwordInput]}
+              placeholder="Use at least 8 characters"
+              secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={setPassword}
+              editable={!submitting}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={styles.passwordToggle}
+              onPress={() => setShowPassword((prev) => !prev)}
+              disabled={submitting}
+            >
+              <Text style={styles.passwordToggleText}>{showPassword ? "Hide" : "Show"}</Text>
+            </TouchableOpacity>
+          </View>
           <Text style={styles.helper}>Use at least 8 characters.</Text>
         </View>
 
         <View style={styles.field}>
           <Text style={styles.label}>Phone number</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="+1 555 555 1212"
-            keyboardType="phone-pad"
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            editable={!submitting}
-          />
+          <View style={styles.phoneRow}>
+            <View style={styles.countryPickerWrapper}>
+              <Picker
+                enabled={!submitting}
+                selectedValue={countryCode}
+                onValueChange={(value) => setCountryCode(value as string)}
+              >
+                {COUNTRY_DIAL_CODES.map((entry) => (
+                  <Picker.Item key={`${entry.code}-${entry.label}`} label={entry.label} value={entry.code} />
+                ))}
+              </Picker>
+            </View>
+            <TextInput
+              style={[styles.input, styles.phoneInput]}
+              placeholder="412 345 678"
+              keyboardType="phone-pad"
+              value={phoneLocal}
+              onChangeText={handlePhoneChange}
+              editable={!submitting}
+            />
+          </View>
           <Text style={styles.helper}>We&apos;ll send the verification code via SMS.</Text>
         </View>
 
@@ -237,6 +291,40 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#d1d5db",
     fontSize: 15,
+  },
+  passwordWrapper: {
+    position: "relative",
+  },
+  passwordInput: {
+    paddingRight: 80,
+  },
+  passwordToggle: {
+    position: "absolute",
+    right: 12,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  passwordToggleText: {
+    color: "#2563eb",
+    fontWeight: "600",
+  },
+  phoneRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  countryPickerWrapper: {
+    flex: 0.9,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 10,
+    overflow: "hidden",
+    backgroundColor: "#ffffff",
+  },
+  phoneInput: {
+    flex: 1,
   },
   multiline: {
     minHeight: 100,
