@@ -1,73 +1,65 @@
-# React + TypeScript + Vite
+# IdeaBridge Frontend (Vite + React)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The IdeaBridge frontend is a single-page application built with Vite, React 18, and TypeScript. It delivers the full product experience for idea creators and builders, including authentication, idea browsing, submissions, profiles, and account management.
 
-Currently, two official plugins are available:
+## Feature highlights
+- **Idea feed & detail:** Browse curated ideas, drill into requirements, and view submitted apps.
+- **Submissions:** Forms for idea creators to propose new ideas and for builders to submit implementations.
+- **Authentication & verification:** Email/password auth with phone verification, mirroring the backend contract.
+- **Account settings:** Update display name, bio, phone number, and preferred role; trigger SMS codes.
+- **Shared mock data:** When the API is offline the app can fall back to bundled mocks to stay functional.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Project structure
+```
+src/
+├── api/          # Typed REST API client wrappers
+├── components/   # Shared layout/navigation controls
+├── context/      # Auth context provider and hooks
+├── data/         # Mock fixtures (mirrors backend seed)
+├── pages/        # Route components for each major view
+├── types/        # Shared TypeScript models
+└── utils/        # Helpers (formatting, validation, filtering)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Getting started
+```bash
+cd frontend
+npm install
+npm run dev
 ```
+
+- Development server defaults to `http://localhost:5173`.
+- The app expects the backend at `http://localhost:4000` during development. Override by setting `VITE_API_BASE_URL`.
+
+## Environment variables
+Create `.env` (ignored) with any overrides:
+```
+VITE_API_BASE_URL=https://api.example.com
+VITE_ENABLE_MOCKS=false
+```
+
+`VITE_ENABLE_MOCKS` toggles whether the app should use in-memory data when the API is unavailable. During CI this remains `false` so network failures surface quickly.
+
+## Scripts
+```bash
+npm run dev       # Start Vite dev server
+npm run build     # Production bundle (outputs to dist/)
+npm run preview   # Preview the production build locally
+npm run lint      # ESLint with type-aware rules
+```
+
+## Testing
+Frontend testing is handled via Playwright and integration tests in the monorepo (roadmap). For now, focus on end-to-end coverage through the backend test suite and manual QA.
+
+## Shared conventions
+- TypeScript strict mode is enabled; all components must be typed.
+- Styling leverages Tailwind-esque utility classes defined in `App.css` until a full design system lands.
+- API calls go through `src/api/http.ts` to ensure auth headers and error handling are consistent across clients.
+
+## Deployment
+`npm run build` emits a static bundle that the Terraform stack uploads to S3 and serves through CloudFront (see `docs/aws-infrastructure.md`).
+
+## Further reading
+- Root repository guide: [`../README.md`](../README.md)
+- Auth requirements: [`../docs/auth-requirements.md`](../docs/auth-requirements.md)
+- Programming spec: [`../docs/programming-spec.md`](../docs/programming-spec.md)

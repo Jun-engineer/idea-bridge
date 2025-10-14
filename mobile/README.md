@@ -7,6 +7,7 @@ This Expo project delivers the IdeaBridge experience on iOS and Android. It shar
 - Phone number capture mirrors the web experience with a country code picker and automatic trunk-prefix trimming.
 - Password fields now include a "Show" toggle so you can double-check credentials before submitting.
 - After signing in, open **Account** from the Home screen header to update profile details, request SMS verification, sign out, or delete your account.
+- Full UX flows, navigation map, and component responsibilities are documented in [`../docs/mobile-design.md`](../docs/mobile-design.md).
 
 ## Prerequisites
 
