@@ -216,6 +216,70 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+resource "aws_iam_role_policy" "lambda_app" {
+  name = "${local.name_prefix}-lambda-policy"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:BatchGetItem",
+          "dynamodb:BatchWriteItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:DescribeTable",
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:Query",
+          "dynamodb:Scan",
+          "dynamodb:UpdateItem"
+        ]
+        Resource = [
+          aws_dynamodb_table.app.arn,
+          "${aws_dynamodb_table.app.arn}/index/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "sns:Publish"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_cloudwatch_log_group" "lambda" {
+  name              = "/aws/lambda/${local.name_prefix}-backend"
+  retention_in_days = 14
+  tags              = local.tags
+}
+
+resource "aws_lambda_function" "backend" {
+  function_name    = "${local.name_prefix}-backend"
+  description      = "IdeaBridge backend API"
+  role             = aws_iam_role.lambda.arn
+  handler          = "dist/lambda.handler"
+  runtime          = "nodejs18.x"
+  filename         = var.lambda_package_path
+  source_code_hash = filebase64sha256(var.lambda_package_path)
+  timeout          = 15
+  memory_size      = 512
+  architectures    = ["x86_64"]
+
+  environment {
+    variables = {
+      NODE_ENV                             = local.env
+      AWS_REGION                           = var.aws_region
+      CORS_ORIGIN                          = var.cors_allowed_origin
+      DATA_TABLE_NAME                      = aws_dynamodb_table.app.name
+      JWT_SECRET                           = var.jwt_secret
+      SESSION_COOKIE_NAME                  = var.session_cookie_name
+      AWS_SNS_SENDER_ID                    = var.aws_sns_sender_id
+      AWS_SNS_ORIGINATION_NUMBER           = var.aws_sns_origination_number
       AWS_SNS_SMS_TYPE                     = var.aws_sns_sms_type
       VERIFICATION_CODE_TTL_SECONDS        = tostring(var.verification_code_ttl)
       VERIFICATION_RESEND_COOLDOWN_SECONDS = tostring(var.verification_resend_cooldown)
