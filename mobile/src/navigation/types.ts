@@ -13,4 +13,7 @@ export type RootStackParamList = {
   SubmitApp: { ideaId?: string };
   Profile: { role: "developer" | "idea-creator"; id: string };
   AccountSettings: undefined;
+  Instructions: undefined;
+  PrivacyPolicy: undefined;
+  Support: undefined;
 };

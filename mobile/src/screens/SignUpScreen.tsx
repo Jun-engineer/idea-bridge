@@ -248,6 +248,20 @@ const SignUpScreen = ({ navigation }: SignUpScreenProps) => {
         <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate("SignIn")}>
           <Text style={styles.secondaryButtonText}>Already have an account? Sign in</Text>
         </TouchableOpacity>
+
+        <View style={styles.helpRow}>
+          <TouchableOpacity onPress={() => navigation.navigate("Instructions")}>
+            <Text style={styles.helpLink}>How IdeaBridge works</Text>
+          </TouchableOpacity>
+          <Text style={styles.helpSeparator}>•</Text>
+          <TouchableOpacity onPress={() => navigation.navigate("PrivacyPolicy")}>
+            <Text style={styles.helpLink}>Privacy policy</Text>
+          </TouchableOpacity>
+          <Text style={styles.helpSeparator}>•</Text>
+          <TouchableOpacity onPress={() => navigation.navigate("Support")}>
+            <Text style={styles.helpLink}>Contact</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -366,6 +380,22 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.7,
+  },
+  helpRow: {
+    marginTop: 24,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  helpLink: {
+    color: "#2563eb",
+    fontWeight: "600",
+  },
+  helpSeparator: {
+    color: "#9ca3af",
+    fontWeight: "600",
   },
 });
 
