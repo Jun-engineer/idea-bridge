@@ -127,7 +127,7 @@ export function PrivacyPolicyPage() {
         <h2>9. Managing Your Account</h2>
         <p>
           You can update most profile details directly within the App. To delete your account or request removal of
-          specific content, email us at <a href="mailto:privacy@idea-bridge.app">privacy@idea-bridge.app</a>. We will
+          specific content, email us at <a href="mailto:jun.nammoku@gmail.com">jun.nammoku@gmail.com</a>. We will
           remove identifying information from active systems within 30 days, subject to legal obligations.
         </p>
       </section>
@@ -135,7 +135,7 @@ export function PrivacyPolicyPage() {
       <section className="privacy-policy__section">
         <h2>10. Contact Us</h2>
         <p>
-          Email the IdeaBridge Privacy Team at <a href="mailto:privacy@idea-bridge.app">privacy@idea-bridge.app</a>.
+          Email the IdeaBridge Privacy Team at <a href="mailto:jun.nammoku@gmail.com">jun.nammoku@gmail.com</a>.
         </p>
       </section>
 

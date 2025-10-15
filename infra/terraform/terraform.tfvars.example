@@ -2,6 +2,8 @@
 jwt_secret                  = "replace-with-secure-random-string"
 session_cookie_name         = "idea_bridge_session"
 cors_allowed_origin         = "https://app.example.com"
+access_token_ttl_seconds    = 43200
+session_ttl_seconds         = 43200
 lambda_package_path         = "../../backend/idea-bridge-backend.zip"
 aws_sns_sender_id           = ""
 aws_sns_origination_number  = ""

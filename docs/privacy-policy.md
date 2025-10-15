@@ -74,7 +74,7 @@ You can update most profile details directly within the App. To delete your acco
 If you have questions or concerns about this policy or our data practices, reach out to:
 
 **IdeaBridge Privacy Team**  
-Email: privacy@idea-bridge.app
+Email: jun.nammoku@gmail.com
 
 ## 11. Changes to This Policy
 
