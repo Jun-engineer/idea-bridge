@@ -101,6 +101,7 @@ export function NavigationBar() {
         </NavLink>
         <NavLink to="/ideas/new">Submit Idea</NavLink>
         <NavLink to="/apps/new">Submit App</NavLink>
+        <NavLink to="/instructions">How it works</NavLink>
         {user && developerId ? <NavLink to={developerHref}>Developer</NavLink> : null}
         {user && creatorId ? <NavLink to={creatorHref}>Idea Creator</NavLink> : null}
         {loading ? null : user ? (

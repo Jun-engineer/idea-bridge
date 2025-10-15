@@ -1,0 +1,64 @@
+.instructions {
+  background: rgba(17, 24, 39, 0.75);
+  padding: 2.5rem 2rem 3rem;
+  border-radius: 24px;
+  box-shadow: 0 20px 45px rgba(8, 15, 34, 0.35);
+  color: #dbe5ff;
+  max-width: 860px;
+  margin: 0 auto 4rem;
+  display: grid;
+  gap: 2rem;
+}
+
+.instructions a {
+  color: #7dd3fc;
+  text-decoration: none;
+}
+
+.instructions a:hover,
+.instructions a:focus-visible {
+  text-decoration: underline;
+}
+
+.instructions__header {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.instructions__header h1 {
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  color: #f4f7ff;
+}
+
+.instructions__section {
+  display: grid;
+  gap: 1rem;
+}
+
+.instructions__section h2 {
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
+  color: #f5f7fb;
+}
+
+.instructions__section ul {
+  display: grid;
+  gap: 0.85rem;
+  padding-left: 1.25rem;
+}
+
+.instructions__section li {
+  list-style: disc;
+  line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+  .instructions {
+    padding: 2rem 1.5rem 2.5rem;
+  }
+}
+
+@media (max-width: 540px) {
+  .instructions {
+    padding: 1.75rem 1.25rem 2.25rem;
+  }
+}
