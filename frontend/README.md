@@ -5,6 +5,7 @@ The IdeaBridge frontend is a single-page application built with Vite, React 18, 
 ## Feature highlights
 - **Idea feed & detail:** Browse curated ideas, drill into requirements, and view submitted apps.
 - **Submissions:** Forms for idea creators to propose new ideas and for builders to submit implementations.
+- **How it works guide:** Dedicated instructions page walking new users through account setup, idea exploration, and collaboration steps.
 - **Authentication & verification:** Email/password auth with phone verification, mirroring the backend contract.
 - **Account settings:** Update display name, bio, phone number, and preferred role; trigger SMS codes.
 - **Shared mock data:** When the API is offline the app can fall back to bundled mocks to stay functional.

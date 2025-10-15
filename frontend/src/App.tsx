@@ -11,6 +11,7 @@ import { SignUpPage } from "./pages/SignUp";
 import { AccountSettingsPage } from "./pages/AccountSettings";
 import { VerifyContactPage } from "./pages/VerifyContact";
 import { PrivacyPolicyPage } from "./pages/PrivacyPolicy";
+import { InstructionsPage } from "./pages/Instructions";
 import "./App.css";
 
 function App() {
@@ -18,13 +19,14 @@ function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
-        <Route path="ideas/new" element={<SubmitIdeaPage />} />
-        <Route path="ideas/:ideaId" element={<IdeaDetailPage />} />
+    <Route path="ideas/new" element={<SubmitIdeaPage />} />
+    <Route path="ideas/:ideaId" element={<IdeaDetailPage />} />
     <Route path="apps/new" element={<SubmitAppPage />} />
     <Route path="profiles/:role/:profileId" element={<ProfilePage />} />
     <Route path="signin" element={<SignInPage />} />
     <Route path="signup" element={<SignUpPage />} />
     <Route path="verify" element={<VerifyContactPage />} />
+    <Route path="instructions" element={<InstructionsPage />} />
     <Route path="privacy-policy" element={<PrivacyPolicyPage />} />
         <Route
           path="profile/settings"
