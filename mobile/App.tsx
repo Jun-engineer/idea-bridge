@@ -16,6 +16,9 @@ import AccountScreen from "./src/screens/AccountScreen";
 import SignInScreen from "./src/screens/SignInScreen";
 import SignUpScreen from "./src/screens/SignUpScreen";
 import VerifyContactScreen from "./src/screens/VerifyContactScreen";
+import InstructionsScreen from "./src/screens/InstructionsScreen";
+import PrivacyPolicyScreen from "./src/screens/PrivacyPolicyScreen";
+import SupportScreen from "./src/screens/SupportScreen";
 import type { RootStackParamList } from "./src/navigation/types";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 
@@ -63,6 +66,9 @@ function RootNavigator() {
           <Stack.Screen name="VerifyContact" component={VerifyContactScreen} options={{ title: "Verify Phone" }} />
         </>
       )}
+      <Stack.Screen name="Instructions" component={InstructionsScreen} options={{ title: "How IdeaBridge Works" }} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ title: "Privacy Policy" }} />
+      <Stack.Screen name="Support" component={SupportScreen} options={{ title: "Contact & Support" }} />
     </Stack.Navigator>
   );
 }

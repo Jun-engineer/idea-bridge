@@ -26,12 +26,26 @@ const IdeaListScreen = ({ navigation }: IdeaListScreenProps) => {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity
-          style={styles.headerAction}
-          onPress={() => navigation.navigate("AccountSettings")}
-        >
-          <Text style={styles.headerActionText}>Account</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.headerAction}
+            onPress={() => navigation.navigate("Instructions")}
+          >
+            <Text style={styles.headerActionText}>How it works</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.headerAction, styles.headerActionSecondary]}
+            onPress={() => navigation.navigate("Support")}
+          >
+            <Text style={styles.headerActionText}>Support</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.headerAction, styles.headerActionPrimary]}
+            onPress={() => navigation.navigate("AccountSettings")}
+          >
+            <Text style={styles.headerActionText}>Account</Text>
+          </TouchableOpacity>
+        </View>
       ),
     });
   }, [navigation]);
@@ -116,6 +130,26 @@ const IdeaListScreen = ({ navigation }: IdeaListScreenProps) => {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         contentContainerStyle={ideas.length === 0 ? styles.emptyList : undefined}
         ListEmptyComponent={<Text style={styles.metaText}>No ideas yet. Be the first to submit one!</Text>}
+        ListFooterComponent={
+          <View style={styles.footerContainer}>
+            <View style={styles.helpLinks}>
+              <TouchableOpacity onPress={() => navigation.navigate("Instructions")}>
+                <Text style={styles.helpLinkText}>How IdeaBridge works</Text>
+              </TouchableOpacity>
+              <Text style={styles.separator}>•</Text>
+              <TouchableOpacity onPress={() => navigation.navigate("PrivacyPolicy")}>
+                <Text style={styles.helpLinkText}>Privacy policy</Text>
+              </TouchableOpacity>
+              <Text style={styles.separator}>•</Text>
+              <TouchableOpacity onPress={() => navigation.navigate("Support")}>
+                <Text style={styles.helpLinkText}>Contact</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.copyright}>
+              © {new Date().getFullYear()} Jun Nammoku
+            </Text>
+          </View>
+        }
       />
     </View>
   );
@@ -128,15 +162,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   headerAction: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: "#1f2937",
+    backgroundColor: "rgba(17, 24, 39, 0.85)",
   },
   headerActionText: {
     color: "#ffffff",
     fontWeight: "600",
+    fontSize: 12,
+  },
+  headerActionPrimary: {
+    backgroundColor: "#1f2937",
+  },
+  headerActionSecondary: {
+    backgroundColor: "rgba(59, 130, 246, 0.85)",
   },
   centered: {
     flex: 1,
@@ -211,6 +257,33 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 12,
     color: "#6b7280",
+  },
+  footerContainer: {
+    marginTop: 24,
+    paddingVertical: 24,
+    alignItems: "center",
+    gap: 12,
+  },
+  helpLinks: {
+    marginTop: 24,
+    paddingVertical: 0,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  helpLinkText: {
+    color: "#2563eb",
+    fontWeight: "600",
+  },
+  separator: {
+    color: "#9ca3af",
+    fontWeight: "600",
+  },
+  copyright: {
+    color: "#9ca3af",
+    fontSize: 13,
   },
   emptyList: {
     flexGrow: 1,
