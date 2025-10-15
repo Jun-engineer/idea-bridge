@@ -12,6 +12,9 @@ locals {
   tf_lock_table_name                                  = "${local.name_prefix}-tf-locks"
   cloudfront_cache_policy_caching_disabled            = "658327ea-f89d-4fab-a63d-7e88639e58f6"
   cloudfront_origin_request_policy_all_viewer_no_host = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
+  privacy_policy_bucket_name_prefix                   = "${local.name_prefix}-privacy-policy-"
+  privacy_policy_bucket_resource                      = "arn:${data.aws_partition.current.partition}:s3:::${local.privacy_policy_bucket_name_prefix}*"
+  privacy_policy_object_resource                      = "arn:${data.aws_partition.current.partition}:s3:::${local.privacy_policy_bucket_name_prefix}*/*"
   tags = {
     Project     = local.project
     Environment = local.env
@@ -507,8 +510,8 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     resources = [
       aws_s3_bucket.frontend.arn,
       "${aws_s3_bucket.frontend.arn}/*",
-      aws_s3_bucket.privacy_policy.arn,
-      "${aws_s3_bucket.privacy_policy.arn}/*",
+      local.privacy_policy_bucket_resource,
+      local.privacy_policy_object_resource,
       "arn:${data.aws_partition.current.partition}:s3:::${local.tf_state_bucket_name}",
       "arn:${data.aws_partition.current.partition}:s3:::${local.tf_state_bucket_name}/*"
     ]
