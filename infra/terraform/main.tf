@@ -276,6 +276,8 @@ resource "aws_lambda_function" "backend" {
       CORS_ORIGIN                          = var.cors_allowed_origin
       DATA_TABLE_NAME                      = aws_dynamodb_table.app.name
       JWT_SECRET                           = var.jwt_secret
+      ACCESS_TOKEN_TTL_SECONDS             = tostring(var.access_token_ttl_seconds)
+      SESSION_TTL_SECONDS                  = tostring(var.session_ttl_seconds)
       SESSION_COOKIE_NAME                  = var.session_cookie_name
       AWS_SNS_SENDER_ID                    = var.aws_sns_sender_id
       AWS_SNS_ORIGINATION_NUMBER           = var.aws_sns_origination_number

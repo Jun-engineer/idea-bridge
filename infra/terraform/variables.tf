@@ -69,6 +69,18 @@ variable "session_cookie_name" {
   default     = "idea_bridge_session"
 }
 
+variable "access_token_ttl_seconds" {
+  description = "Lifetime of JWT access tokens in seconds."
+  type        = number
+  default     = 60 * 60 * 12
+}
+
+variable "session_ttl_seconds" {
+  description = "Lifetime of server-side sessions in seconds."
+  type        = number
+  default     = 60 * 60 * 12
+}
+
 variable "lambda_package_path" {
   description = "Relative path to the packaged backend Lambda zip file."
   type        = string
