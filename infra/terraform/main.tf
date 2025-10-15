@@ -12,9 +12,6 @@ locals {
   tf_lock_table_name                                  = "${local.name_prefix}-tf-locks"
   cloudfront_cache_policy_caching_disabled            = "658327ea-f89d-4fab-a63d-7e88639e58f6"
   cloudfront_origin_request_policy_all_viewer_no_host = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
-  privacy_policy_bucket_name_prefix                   = "${local.name_prefix}-privacy-policy-"
-  privacy_policy_bucket_resource                      = "arn:${data.aws_partition.current.partition}:s3:::${local.privacy_policy_bucket_name_prefix}*"
-  privacy_policy_object_resource                      = "arn:${data.aws_partition.current.partition}:s3:::${local.privacy_policy_bucket_name_prefix}*/*"
   cloudfront_distribution_arn_pattern                 = "arn:${data.aws_partition.current.partition}:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/*"
   cloudfront_oai_arn_pattern                          = "arn:${data.aws_partition.current.partition}:cloudfront::${data.aws_caller_identity.current.account_id}:origin-access-identity/*"
   tags = {
@@ -37,10 +34,6 @@ data "aws_iam_openid_connect_provider" "github_actions" {
 
 
 resource "random_id" "bucket_suffix" {
-  byte_length = 4
-}
-
-resource "random_id" "privacy_policy_bucket_suffix" {
   byte_length = 4
 }
 
@@ -78,45 +71,6 @@ resource "aws_cloudfront_origin_access_identity" "frontend" {
   comment = "Access identity for ${aws_s3_bucket.frontend.bucket}"
 }
 
-resource "aws_s3_bucket" "privacy_policy" {
-  bucket = "${local.name_prefix}-privacy-policy-${random_id.privacy_policy_bucket_suffix.hex}"
-  tags   = local.tags
-
-  force_destroy = false
-  depends_on   = [time_sleep.wait_for_iam_propagation]
-
-  lifecycle {
-    prevent_destroy = false
-    precondition {
-      condition     = data.aws_caller_identity.current.account_id == var.aws_account_id
-      error_message = "Terraform is authenticated against account ${data.aws_caller_identity.current.account_id}, but configuration targets ${var.aws_account_id}."
-    }
-  }
-}
-
-resource "aws_s3_bucket_public_access_block" "privacy_policy" {
-  bucket = aws_s3_bucket.privacy_policy.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-resource "aws_s3_bucket_versioning" "privacy_policy" {
-  bucket = aws_s3_bucket.privacy_policy.id
-
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_cloudfront_origin_access_identity" "privacy_policy" {
-  comment = "Access identity for ${aws_s3_bucket.privacy_policy.bucket}"
-
-  depends_on = [time_sleep.wait_for_iam_propagation]
-}
-
 resource "aws_s3_bucket_policy" "frontend" {
   bucket = aws_s3_bucket.frontend.id
 
@@ -130,24 +84,6 @@ resource "aws_s3_bucket_policy" "frontend" {
         }
         Action   = ["s3:GetObject"]
         Resource = ["${aws_s3_bucket.frontend.arn}/*"]
-      }
-    ]
-  })
-}
-
-resource "aws_s3_bucket_policy" "privacy_policy" {
-  bucket = aws_s3_bucket.privacy_policy.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          AWS = aws_cloudfront_origin_access_identity.privacy_policy.iam_arn
-        }
-        Action   = ["s3:GetObject"]
-        Resource = ["${aws_s3_bucket.privacy_policy.arn}/*"]
       }
     ]
   })
@@ -233,51 +169,6 @@ resource "aws_cloudfront_distribution" "frontend" {
   tags = local.tags
 }
 
-resource "aws_cloudfront_distribution" "privacy_policy" {
-  enabled             = true
-  default_root_object = "index.html"
-
-  depends_on = [aws_cloudfront_origin_access_identity.privacy_policy, time_sleep.wait_for_iam_propagation]
-
-  origin {
-    domain_name = aws_s3_bucket.privacy_policy.bucket_regional_domain_name
-    origin_id   = "s3-privacy-policy"
-
-    s3_origin_config {
-      origin_access_identity = aws_cloudfront_origin_access_identity.privacy_policy.cloudfront_access_identity_path
-    }
-  }
-
-  default_cache_behavior {
-    allowed_methods  = ["GET", "HEAD"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "s3-privacy-policy"
-
-    viewer_protocol_policy = "redirect-to-https"
-
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
-  }
-
-  restrictions {
-    geo_restriction {
-      restriction_type = "none"
-    }
-  }
-
-  viewer_certificate {
-    cloudfront_default_certificate = true
-  }
-
-  price_class = "PriceClass_200"
-
-  tags = local.tags
-}
-
 resource "aws_dynamodb_table" "app" {
   name         = "${local.name_prefix}-data"
   billing_mode = "PAY_PER_REQUEST"
@@ -325,69 +216,6 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-resource "aws_iam_role_policy" "lambda_app" {
-  name = "${local.name_prefix}-lambda-policy"
-  role = aws_iam_role.lambda.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["sns:Publish"],
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "dynamodb:BatchGetItem",
-          "dynamodb:BatchWriteItem",
-          "dynamodb:GetItem",
-          "dynamodb:PutItem",
-          "dynamodb:Query",
-          "dynamodb:UpdateItem",
-          "dynamodb:DeleteItem",
-          "dynamodb:Scan",
-          "dynamodb:TransactWriteItems",
-          "dynamodb:TransactGetItems"
-        ],
-        Resource = [
-          aws_dynamodb_table.app.arn,
-          "${aws_dynamodb_table.app.arn}/index/*"
-        ]
-      }
-    ]
-  })
-}
-
-resource "aws_cloudwatch_log_group" "lambda" {
-  name              = "/aws/lambda/${local.name_prefix}-backend"
-  retention_in_days = 14
-  tags              = local.tags
-}
-
-resource "aws_lambda_function" "backend" {
-  function_name = "${local.name_prefix}-backend"
-  description   = "IdeaBridge Express API wrapped for Lambda"
-  role          = aws_iam_role.lambda.arn
-  runtime       = "nodejs20.x"
-  handler       = "dist/lambda.handler"
-  architectures = ["arm64"]
-  timeout       = 10
-  memory_size   = 512
-
-  filename         = var.lambda_package_path
-  source_code_hash = filebase64sha256(var.lambda_package_path)
-
-  environment {
-    variables = {
-      NODE_ENV                             = "production"
-      CORS_ORIGIN                          = var.cors_allowed_origin
-      JWT_SECRET                           = var.jwt_secret
-      SESSION_COOKIE_NAME                  = var.session_cookie_name
-      DATA_TABLE_NAME                      = aws_dynamodb_table.app.name
-      AWS_SNS_SENDER_ID                    = var.aws_sns_sender_id
-      AWS_SNS_ORIGINATION_NUMBER           = var.aws_sns_origination_number
       AWS_SNS_SMS_TYPE                     = var.aws_sns_sms_type
       VERIFICATION_CODE_TTL_SECONDS        = tostring(var.verification_code_ttl)
       VERIFICATION_RESEND_COOLDOWN_SECONDS = tostring(var.verification_resend_cooldown)
@@ -516,8 +344,6 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     resources = [
       aws_s3_bucket.frontend.arn,
       "${aws_s3_bucket.frontend.arn}/*",
-      local.privacy_policy_bucket_resource,
-      local.privacy_policy_object_resource,
       "arn:${data.aws_partition.current.partition}:s3:::${local.tf_state_bucket_name}",
       "arn:${data.aws_partition.current.partition}:s3:::${local.tf_state_bucket_name}/*"
     ]
@@ -715,14 +541,4 @@ resource "aws_iam_policy" "github_actions" {
 resource "aws_iam_role_policy_attachment" "github_actions" {
   role       = aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.github_actions.arn
-}
-
-resource "time_sleep" "wait_for_iam_propagation" {
-  depends_on       = [aws_iam_policy.github_actions]
-  create_duration  = "45s"
-  destroy_duration = "5s"
-
-  triggers = {
-    github_actions_policy = data.aws_iam_policy_document.github_actions_permissions.json
-  }
 }

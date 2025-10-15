@@ -21,8 +21,6 @@ jobs:
       api_gateway_endpoint: ${{ steps.tf_outputs.outputs.api_gateway_endpoint }}
       frontend_bucket_name: ${{ steps.tf_outputs.outputs.frontend_bucket_name }}
       cloudfront_distribution_id: ${{ steps.tf_outputs.outputs.cloudfront_distribution_id }}
-      privacy_policy_bucket_name: ${{ steps.tf_outputs.outputs.privacy_policy_bucket_name }}
-      privacy_policy_cloudfront_distribution_id: ${{ steps.tf_outputs.outputs.privacy_policy_cloudfront_distribution_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -103,13 +101,9 @@ jobs:
           echo "$outputs" | jq -r '.api_gateway_endpoint.value' > ../api-gateway.txt
           echo "$outputs" | jq -r '.frontend_bucket_name.value' > ../frontend-bucket.txt
           echo "$outputs" | jq -r '.cloudfront_distribution_id.value' > ../cloudfront-id.txt
-          echo "$outputs" | jq -r '.privacy_policy_bucket_name.value' > ../privacy-policy-bucket.txt
-          echo "$outputs" | jq -r '.privacy_policy_cloudfront_distribution_id.value' > ../privacy-policy-cloudfront-id.txt
           echo "api_gateway_endpoint=$(cat ../api-gateway.txt)" >> "$GITHUB_OUTPUT"
           echo "frontend_bucket_name=$(cat ../frontend-bucket.txt)" >> "$GITHUB_OUTPUT"
           echo "cloudfront_distribution_id=$(cat ../cloudfront-id.txt)" >> "$GITHUB_OUTPUT"
-          echo "privacy_policy_bucket_name=$(cat ../privacy-policy-bucket.txt)" >> "$GITHUB_OUTPUT"
-          echo "privacy_policy_cloudfront_distribution_id=$(cat ../privacy-policy-cloudfront-id.txt)" >> "$GITHUB_OUTPUT"
 
   frontend:
     name: Deploy Frontend
@@ -149,12 +143,5 @@ jobs:
         working-directory: frontend
         run: aws s3 sync dist/ s3://${{ needs.backend.outputs.frontend_bucket_name }}/ --delete
 
-      - name: Publish privacy policy page
-        run: |
-          aws s3 cp static/privacy-policy/index.html s3://${{ needs.backend.outputs.privacy_policy_bucket_name }}/index.html \
-            --content-type text/html --cache-control "max-age=300, public"
-
-      - name: Invalidate CloudFront caches
-        run: |
-          aws cloudfront create-invalidation --distribution-id ${{ needs.backend.outputs.cloudfront_distribution_id }} --paths '/*'
-          aws cloudfront create-invalidation --distribution-id ${{ needs.backend.outputs.privacy_policy_cloudfront_distribution_id }} --paths '/index.html'
+      - name: Invalidate CloudFront cache
+        run: aws cloudfront create-invalidation --distribution-id ${{ needs.backend.outputs.cloudfront_distribution_id }} --paths '/*'
