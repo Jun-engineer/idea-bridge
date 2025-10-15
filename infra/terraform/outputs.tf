@@ -13,6 +13,21 @@ output "cloudfront_distribution_id" {
   value       = aws_cloudfront_distribution.frontend.id
 }
 
+output "privacy_policy_bucket_name" {
+  description = "S3 bucket hosting the privacy policy page."
+  value       = aws_s3_bucket.privacy_policy.bucket
+}
+
+output "privacy_policy_cloudfront_domain_name" {
+  description = "CloudFront domain serving the privacy policy page."
+  value       = aws_cloudfront_distribution.privacy_policy.domain_name
+}
+
+output "privacy_policy_cloudfront_distribution_id" {
+  description = "CloudFront distribution ID for privacy policy cache invalidations."
+  value       = aws_cloudfront_distribution.privacy_policy.id
+}
+
 output "api_gateway_endpoint" {
   description = "Invoke URL for the HTTP API Gateway."
   value       = aws_apigatewayv2_api.backend.api_endpoint
