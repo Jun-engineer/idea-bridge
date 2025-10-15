@@ -495,7 +495,14 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "s3:GetObject",
       "s3:PutObject",
       "s3:DeleteObject",
-      "s3:ListBucket"
+      "s3:ListBucket",
+      "s3:CreateBucket",
+      "s3:DeleteBucket",
+      "s3:PutBucketVersioning",
+      "s3:PutBucketPolicy",
+      "s3:PutBucketPublicAccessBlock",
+      "s3:DeleteBucketPolicy",
+      "s3:PutBucketTagging"
     ]
     resources = [
       aws_s3_bucket.frontend.arn,
