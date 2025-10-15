@@ -552,6 +552,17 @@ data "aws_iam_policy_document" "github_actions_permissions" {
   }
 
   statement {
+    sid    = "CloudFrontOAIManage"
+    effect = "Allow"
+    actions = [
+      "cloudfront:CreateCloudFrontOriginAccessIdentity",
+      "cloudfront:DeleteCloudFrontOriginAccessIdentity",
+      "cloudfront:UpdateCloudFrontOriginAccessIdentity"
+    ]
+    resources = ["*"]
+  }
+
+  statement {
     sid    = "LambdaManage"
     effect = "Allow"
     actions = [
