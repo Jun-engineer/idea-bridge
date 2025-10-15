@@ -534,7 +534,10 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     sid    = "CloudFrontInvalidate"
     effect = "Allow"
     actions = [
+      "cloudfront:CreateDistribution",
       "cloudfront:CreateInvalidation",
+      "cloudfront:TagResource",
+      "cloudfront:UntagResource",
       "cloudfront:UpdateDistribution"
     ]
     resources = [local.cloudfront_distribution_arn_pattern]
