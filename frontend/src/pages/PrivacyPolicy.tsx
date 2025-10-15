@@ -148,7 +148,7 @@ export function PrivacyPolicyPage() {
         </p>
       </section>
 
-      <footer className="privacy-policy__footer">&copy; 2025 IdeaBridge. All rights reserved.</footer>
+  <footer className="privacy-policy__footer">&copy; 2025 Jun Nammoku. All rights reserved.</footer>
     </div>
   );
 }
