@@ -34,6 +34,7 @@ Terraform workspaces or separate state files manage isolation. Remote state live
 - Stores built frontend assets (`frontend/dist`).
 - Versioning enabled to support rollbacks.
 - Public access blocked; CloudFront origin access identity grants read access.
+- Dedicated bucket `*-privacy-policy-*` serves the privacy policy static page via its own CloudFront distribution so the document can be updated independently from SPA releases.
 
 ### 3.3 Amazon API Gateway (HTTP API)
 - Routes `/api/*` requests to Lambda via proxy integration.
