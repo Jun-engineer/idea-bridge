@@ -426,6 +426,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     actions = [
       "cloudfront:CreateDistribution",
       "cloudfront:CreateInvalidation",
+      "cloudfront:DeleteDistribution",
       "cloudfront:TagResource",
       "cloudfront:UntagResource",
       "cloudfront:UpdateDistribution"
