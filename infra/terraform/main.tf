@@ -83,8 +83,7 @@ resource "aws_s3_bucket" "privacy_policy" {
   tags   = local.tags
 
   force_destroy = false
-
-  depends_on = [aws_iam_policy.github_actions]
+  depends_on   = [time_sleep.wait_for_iam_propagation]
 
   lifecycle {
     prevent_destroy = false
@@ -698,4 +697,10 @@ resource "aws_iam_policy" "github_actions" {
 resource "aws_iam_role_policy_attachment" "github_actions" {
   role       = aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.github_actions.arn
+}
+
+resource "time_sleep" "wait_for_iam_propagation" {
+  depends_on       = [aws_iam_policy.github_actions]
+  create_duration  = "20s"
+  destroy_duration = "5s"
 }
