@@ -15,6 +15,8 @@ locals {
   privacy_policy_bucket_name_prefix                   = "${local.name_prefix}-privacy-policy-"
   privacy_policy_bucket_resource                      = "arn:${data.aws_partition.current.partition}:s3:::${local.privacy_policy_bucket_name_prefix}*"
   privacy_policy_object_resource                      = "arn:${data.aws_partition.current.partition}:s3:::${local.privacy_policy_bucket_name_prefix}*/*"
+  cloudfront_distribution_arn_pattern                 = "arn:${data.aws_partition.current.partition}:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/*"
+  cloudfront_oai_arn_pattern                          = "arn:${data.aws_partition.current.partition}:cloudfront::${data.aws_caller_identity.current.account_id}:origin-access-identity/*"
   tags = {
     Project     = local.project
     Environment = local.env
@@ -81,6 +83,8 @@ resource "aws_s3_bucket" "privacy_policy" {
   tags   = local.tags
 
   force_destroy = false
+
+  depends_on = [aws_iam_policy.github_actions]
 
   lifecycle {
     prevent_destroy = false
@@ -530,10 +534,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "cloudfront:CreateInvalidation",
       "cloudfront:UpdateDistribution"
     ]
-    resources = [
-      "arn:${data.aws_partition.current.partition}:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${aws_cloudfront_distribution.frontend.id}",
-      "arn:${data.aws_partition.current.partition}:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${aws_cloudfront_distribution.privacy_policy.id}"
-    ]
+    resources = [local.cloudfront_distribution_arn_pattern]
   }
 
   statement {
@@ -546,10 +547,8 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "cloudfront:ListTagsForResource"
     ]
     resources = [
-      "arn:${data.aws_partition.current.partition}:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${aws_cloudfront_distribution.frontend.id}",
-      "arn:${data.aws_partition.current.partition}:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${aws_cloudfront_distribution.privacy_policy.id}",
-      "arn:${data.aws_partition.current.partition}:cloudfront::${data.aws_caller_identity.current.account_id}:origin-access-identity/${aws_cloudfront_origin_access_identity.frontend.id}",
-      "arn:${data.aws_partition.current.partition}:cloudfront::${data.aws_caller_identity.current.account_id}:origin-access-identity/${aws_cloudfront_origin_access_identity.privacy_policy.id}"
+      local.cloudfront_distribution_arn_pattern,
+      local.cloudfront_oai_arn_pattern
     ]
   }
 
