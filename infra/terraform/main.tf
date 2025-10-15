@@ -113,6 +113,8 @@ resource "aws_s3_bucket_versioning" "privacy_policy" {
 
 resource "aws_cloudfront_origin_access_identity" "privacy_policy" {
   comment = "Access identity for ${aws_s3_bucket.privacy_policy.bucket}"
+
+  depends_on = [time_sleep.wait_for_iam_propagation]
 }
 
 resource "aws_s3_bucket_policy" "frontend" {
@@ -234,6 +236,8 @@ resource "aws_cloudfront_distribution" "frontend" {
 resource "aws_cloudfront_distribution" "privacy_policy" {
   enabled             = true
   default_root_object = "index.html"
+
+  depends_on = [aws_cloudfront_origin_access_identity.privacy_policy]
 
   origin {
     domain_name = aws_s3_bucket.privacy_policy.bucket_regional_domain_name
@@ -712,6 +716,6 @@ resource "aws_iam_role_policy_attachment" "github_actions" {
 
 resource "time_sleep" "wait_for_iam_propagation" {
   depends_on       = [aws_iam_policy.github_actions]
-  create_duration  = "20s"
+  create_duration  = "45s"
   destroy_duration = "5s"
 }
