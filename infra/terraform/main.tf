@@ -499,7 +499,6 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "s3:PutObject",
       "s3:DeleteObject",
       "s3:ListBucket",
-      "s3:CreateBucket",
       "s3:DeleteBucket",
       "s3:PutBucketVersioning",
       "s3:PutBucketPolicy",
@@ -515,6 +514,13 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "arn:${data.aws_partition.current.partition}:s3:::${local.tf_state_bucket_name}",
       "arn:${data.aws_partition.current.partition}:s3:::${local.tf_state_bucket_name}/*"
     ]
+  }
+
+  statement {
+    sid       = "S3CreateBucket"
+    effect    = "Allow"
+    actions   = ["s3:CreateBucket"]
+    resources = ["*"]
   }
 
   statement {
