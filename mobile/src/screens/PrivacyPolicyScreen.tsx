@@ -78,6 +78,7 @@ const PrivacyPolicyScreen = ({ navigation }: PrivacyPolicyScreenProps) => {
         <TouchableOpacity style={styles.secondaryLink} onPress={() => navigation.navigate("Support")}>
           <Text style={styles.secondaryLinkText}>Need other help? Visit support</Text>
         </TouchableOpacity>
+        <Text style={styles.copyright}>© {new Date().getFullYear()} Jun Nammoku</Text>
       </View>
     </ScrollView>
   );
@@ -163,6 +164,12 @@ const styles = StyleSheet.create({
     color: "#93c5fd",
     fontSize: 15,
     textDecorationLine: "underline",
+  },
+  copyright: {
+    marginTop: 16,
+    color: "#93c5fd",
+    fontSize: 13,
+    textAlign: "center",
   },
 });
 
