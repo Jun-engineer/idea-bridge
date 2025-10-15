@@ -237,7 +237,7 @@ resource "aws_cloudfront_distribution" "privacy_policy" {
   enabled             = true
   default_root_object = "index.html"
 
-  depends_on = [aws_cloudfront_origin_access_identity.privacy_policy]
+  depends_on = [aws_cloudfront_origin_access_identity.privacy_policy, time_sleep.wait_for_iam_propagation]
 
   origin {
     domain_name = aws_s3_bucket.privacy_policy.bucket_regional_domain_name
@@ -721,4 +721,8 @@ resource "time_sleep" "wait_for_iam_propagation" {
   depends_on       = [aws_iam_policy.github_actions]
   create_duration  = "45s"
   destroy_duration = "5s"
+
+  triggers = {
+    github_actions_policy = data.aws_iam_policy_document.github_actions_permissions.json
+  }
 }
