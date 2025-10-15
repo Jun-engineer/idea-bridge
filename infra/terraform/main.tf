@@ -260,20 +260,19 @@ resource "aws_cloudwatch_log_group" "lambda" {
 
 resource "aws_lambda_function" "backend" {
   function_name    = "${local.name_prefix}-backend"
-  description      = "IdeaBridge backend API"
+  description      = "IdeaBridge Express API wrapped for Lambda"
   role             = aws_iam_role.lambda.arn
   handler          = "dist/lambda.handler"
-  runtime          = "nodejs18.x"
+  runtime          = "nodejs20.x"
   filename         = var.lambda_package_path
   source_code_hash = filebase64sha256(var.lambda_package_path)
-  timeout          = 15
+  timeout          = 10
   memory_size      = 512
-  architectures    = ["x86_64"]
+  architectures    = ["arm64"]
 
   environment {
     variables = {
-      NODE_ENV                             = local.env
-      AWS_REGION                           = var.aws_region
+      NODE_ENV                             = "production"
       CORS_ORIGIN                          = var.cors_allowed_origin
       DATA_TABLE_NAME                      = aws_dynamodb_table.app.name
       JWT_SECRET                           = var.jwt_secret

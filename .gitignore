@@ -47,6 +47,8 @@ mobile/.expo-shared/
 **/*.tfstate.*
 **/*.tfvars
 !**/*.tfvars.example
+**/*.tfplan
+terraform.tfstate.d/
 
 # Lambda artifacts
 **/idea-bridge-backend.zip
