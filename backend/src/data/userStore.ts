@@ -39,6 +39,7 @@ interface UserStore {
   createUser(data: CreateUserInput): Promise<User>;
   getUserByEmail(email: string): Promise<User | null>;
   getUserById(id: string): Promise<User | null>;
+  getActiveUserByPhoneAndRole(phoneNumber: string, role: Role): Promise<User | null>;
   updateUser(id: string, updates: UpdateUserInput): Promise<User | null>;
   softDeleteUser(id: string): Promise<User | null>;
   createSession(userId: string): Promise<Session>;
@@ -54,13 +55,36 @@ const sessionTtlSeconds = Number(process.env.SESSION_TTL_SECONDS ?? 60 * 60 * 24
 function createMemoryStore(): UserStore {
   const usersById = new Map<string, User>();
   const userIdsByEmail = new Map<string, string>();
+  const userIdsByPhoneRole = new Map<string, string>();
   const sessionsById = new Map<string, Session>();
   const sessionsByUserId = new Map<string, Set<string>>();
+
+  const phoneRoleKey = (phoneNumber: string, role: Role) => `${phoneNumber}::${role}`;
+
+  function setPhoneRoleMapping(user: User) {
+    if (!user.phoneNumber || !user.preferredRole || user.deletedAt) {
+      return;
+    }
+    const key = phoneRoleKey(user.phoneNumber, user.preferredRole);
+    userIdsByPhoneRole.set(key, user.id);
+  }
+
+  function removePhoneRoleMapping(user: User) {
+    if (!user.phoneNumber || !user.preferredRole) {
+      return;
+    }
+    const key = phoneRoleKey(user.phoneNumber, user.preferredRole);
+    const existing = userIdsByPhoneRole.get(key);
+    if (existing === user.id) {
+      userIdsByPhoneRole.delete(key);
+    }
+  }
 
   return {
     async seedUser(user) {
       usersById.set(user.id, user);
       userIdsByEmail.set(user.email.toLowerCase(), user.id);
+      setPhoneRoleMapping(user);
     },
     async createUser(data) {
       const id = randomUUID();
@@ -83,6 +107,7 @@ function createMemoryStore(): UserStore {
 
       usersById.set(id, user);
       userIdsByEmail.set(user.email, id);
+      setPhoneRoleMapping(user);
       return user;
     },
     async getUserByEmail(email) {
@@ -90,12 +115,26 @@ function createMemoryStore(): UserStore {
       if (!id) return null;
       return usersById.get(id) ?? null;
     },
+    async getActiveUserByPhoneAndRole(phoneNumber, role) {
+      const key = phoneRoleKey(phoneNumber, role);
+      const userId = userIdsByPhoneRole.get(key);
+      if (!userId) {
+        return null;
+      }
+      const user = usersById.get(userId) ?? null;
+      if (!user || user.deletedAt) {
+        userIdsByPhoneRole.delete(key);
+        return null;
+      }
+      return user;
+    },
     async getUserById(id) {
       return usersById.get(id) ?? null;
     },
     async updateUser(id, updates) {
       const user = usersById.get(id);
       if (!user) return null;
+      const previousSnapshot = { ...user };
 
       const patched: User = {
         ...user,
@@ -115,6 +154,8 @@ function createMemoryStore(): UserStore {
       };
 
       usersById.set(id, patched);
+      removePhoneRoleMapping(previousSnapshot);
+      setPhoneRoleMapping(patched);
       return patched;
     },
     async softDeleteUser(id) {
@@ -129,6 +170,7 @@ function createMemoryStore(): UserStore {
 
       usersById.set(id, deleted);
       userIdsByEmail.delete(user.email);
+      removePhoneRoleMapping(user);
       return deleted;
     },
     async createSession(userId) {
@@ -183,6 +225,7 @@ function createMemoryStore(): UserStore {
     async reset() {
       usersById.clear();
       userIdsByEmail.clear();
+      userIdsByPhoneRole.clear();
       sessionsById.clear();
       sessionsByUserId.clear();
     },
@@ -373,6 +416,43 @@ function buildDynamoStore(): UserStore {
       }
 
       return toUser(result.Item);
+    },
+    async getActiveUserByPhoneAndRole(phoneNumber, role) {
+      if (!phoneNumber) {
+        return null;
+      }
+
+      let lastEvaluatedKey: Record<string, unknown> | undefined;
+      do {
+        const response = await docClient.send(
+          new ScanCommand({
+            TableName: tableName,
+            FilterExpression:
+              "#entityType = :userType AND #phoneNumber = :phone AND #preferredRole = :role AND (attribute_not_exists(#deletedAt) OR #deletedAt = :deletedNull)",
+            ExpressionAttributeNames: {
+              "#entityType": "entityType",
+              "#phoneNumber": "phoneNumber",
+              "#preferredRole": "preferredRole",
+              "#deletedAt": "deletedAt",
+            },
+            ExpressionAttributeValues: {
+              ":userType": "USER",
+              ":phone": phoneNumber,
+              ":role": role,
+              ":deletedNull": null,
+            },
+            ExclusiveStartKey: lastEvaluatedKey,
+          }),
+        );
+
+        if (response.Items && response.Items.length > 0) {
+          return toUser(response.Items[0]);
+        }
+
+        lastEvaluatedKey = response.LastEvaluatedKey as Record<string, unknown> | undefined;
+      } while (lastEvaluatedKey);
+
+      return null;
     },
     async updateUser(id, updates) {
       const setExpressions: string[] = [];
@@ -713,6 +793,7 @@ export const seedUser = store.seedUser.bind(store);
 export const createUser = store.createUser.bind(store);
 export const getUserByEmail = store.getUserByEmail.bind(store);
 export const getUserById = store.getUserById.bind(store);
+export const getActiveUserByPhoneAndRole = store.getActiveUserByPhoneAndRole.bind(store);
 export const updateUser = store.updateUser.bind(store);
 export const softDeleteUser = store.softDeleteUser.bind(store);
 export const createSession = store.createSession.bind(store);
