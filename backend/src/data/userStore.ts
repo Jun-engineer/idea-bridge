@@ -38,6 +38,8 @@ interface UserStore {
   seedUser(user: User): Promise<void>;
   createUser(data: CreateUserInput): Promise<User>;
   getUserByEmail(email: string): Promise<User | null>;
+  getActiveUserByEmailAndRole(email: string, role: Role): Promise<User | null>;
+  listActiveUsersByEmail(email: string): Promise<User[]>;
   getUserById(id: string): Promise<User | null>;
   getActiveUserByPhoneAndRole(phoneNumber: string, role: Role): Promise<User | null>;
   updateUser(id: string, updates: UpdateUserInput): Promise<User | null>;
@@ -54,12 +56,48 @@ const sessionTtlSeconds = Number(process.env.SESSION_TTL_SECONDS ?? 60 * 60 * 24
 
 function createMemoryStore(): UserStore {
   const usersById = new Map<string, User>();
-  const userIdsByEmail = new Map<string, string>();
+  const userIdsByEmail = new Map<string, Set<string>>();
+  const userIdsByEmailRole = new Map<string, string>();
   const userIdsByPhoneRole = new Map<string, string>();
   const sessionsById = new Map<string, Session>();
   const sessionsByUserId = new Map<string, Set<string>>();
 
   const phoneRoleKey = (phoneNumber: string, role: Role) => `${phoneNumber}::${role}`;
+  const emailRoleKey = (email: string, role: Role) => `${email}::${role}`;
+
+  function addEmailMapping(user: User) {
+    const email = user.email.toLowerCase();
+    if (user.deletedAt) {
+      return;
+    }
+    if (!userIdsByEmail.has(email)) {
+      userIdsByEmail.set(email, new Set());
+    }
+    userIdsByEmail.get(email)!.add(user.id);
+
+    if (user.preferredRole) {
+      userIdsByEmailRole.set(emailRoleKey(email, user.preferredRole), user.id);
+    }
+  }
+
+  function removeEmailMapping(user: User) {
+    const email = user.email.toLowerCase();
+    const ids = userIdsByEmail.get(email);
+    if (ids) {
+      ids.delete(user.id);
+      if (ids.size === 0) {
+        userIdsByEmail.delete(email);
+      }
+    }
+
+    if (user.preferredRole) {
+      const key = emailRoleKey(email, user.preferredRole);
+      const existing = userIdsByEmailRole.get(key);
+      if (existing === user.id) {
+        userIdsByEmailRole.delete(key);
+      }
+    }
+  }
 
   function setPhoneRoleMapping(user: User) {
     if (!user.phoneNumber || !user.preferredRole || user.deletedAt) {
@@ -83,7 +121,7 @@ function createMemoryStore(): UserStore {
   return {
     async seedUser(user) {
       usersById.set(user.id, user);
-      userIdsByEmail.set(user.email.toLowerCase(), user.id);
+      addEmailMapping(user);
       setPhoneRoleMapping(user);
     },
     async createUser(data) {
@@ -106,14 +144,54 @@ function createMemoryStore(): UserStore {
       };
 
       usersById.set(id, user);
-      userIdsByEmail.set(user.email, id);
+      addEmailMapping(user);
       setPhoneRoleMapping(user);
       return user;
     },
     async getUserByEmail(email) {
-      const id = userIdsByEmail.get(email.toLowerCase());
-      if (!id) return null;
-      return usersById.get(id) ?? null;
+      const ids = userIdsByEmail.get(email.toLowerCase());
+      if (!ids || ids.size === 0) {
+        return null;
+      }
+      for (const id of [...ids]) {
+        const user = usersById.get(id);
+        if (user && !user.deletedAt) {
+          return user;
+        }
+        if (!user || user.deletedAt) {
+          ids.delete(id);
+        }
+      }
+      return null;
+    },
+    async getActiveUserByEmailAndRole(email, role) {
+      const key = emailRoleKey(email.toLowerCase(), role);
+      const userId = userIdsByEmailRole.get(key);
+      if (!userId) {
+        return null;
+      }
+      const user = usersById.get(userId) ?? null;
+      if (!user || user.deletedAt) {
+        userIdsByEmailRole.delete(key);
+        return null;
+      }
+      return user;
+    },
+    async listActiveUsersByEmail(email: string) {
+      const ids = userIdsByEmail.get(email.toLowerCase());
+      if (!ids) {
+        return [];
+      }
+      const users: User[] = [];
+      for (const id of [...ids]) {
+        const user = usersById.get(id);
+        if (user && !user.deletedAt) {
+          users.push(user);
+        } else {
+          ids.delete(id);
+        }
+      }
+      return users;
     },
     async getActiveUserByPhoneAndRole(phoneNumber, role) {
       const key = phoneRoleKey(phoneNumber, role);
@@ -154,7 +232,9 @@ function createMemoryStore(): UserStore {
       };
 
       usersById.set(id, patched);
+      removeEmailMapping(previousSnapshot);
       removePhoneRoleMapping(previousSnapshot);
+      addEmailMapping(patched);
       setPhoneRoleMapping(patched);
       return patched;
     },
@@ -169,7 +249,7 @@ function createMemoryStore(): UserStore {
       };
 
       usersById.set(id, deleted);
-      userIdsByEmail.delete(user.email);
+      removeEmailMapping(user);
       removePhoneRoleMapping(user);
       return deleted;
     },
@@ -225,6 +305,7 @@ function createMemoryStore(): UserStore {
     async reset() {
       usersById.clear();
       userIdsByEmail.clear();
+      userIdsByEmailRole.clear();
       userIdsByPhoneRole.clear();
       sessionsById.clear();
       sessionsByUserId.clear();
@@ -233,11 +314,13 @@ function createMemoryStore(): UserStore {
 }
 
 const USER_PROFILE_SK = "PROFILE";
-const USER_EMAIL_SK = "PROFILE";
+const USER_EMAIL_ROLE_PREFIX = "ROLE#";
 const SESSION_ITEM_SK = "SESSION";
 
 const userPk = (userId: string) => `USER#${userId}`;
 const userEmailPk = (email: string) => `USER_EMAIL#${email}`;
+const userEmailRoleSk = (role: Role | null | undefined) =>
+  `${USER_EMAIL_ROLE_PREFIX}${role ?? "none"}`;
 const sessionPk = (sessionId: string) => `SESSION#${sessionId}`;
 const userSessionSk = (sessionId: string) => `SESSION#${sessionId}`;
 
@@ -290,9 +373,10 @@ function buildDynamoStore(): UserStore {
 
       const emailItem = {
         PK: userEmailPk(loweredEmail),
-        SK: USER_EMAIL_SK,
+        SK: userEmailRoleSk(user.preferredRole ?? null),
         entityType: "USER_EMAIL",
         userId: user.id,
+        role: user.preferredRole ?? null,
         createdAt: user.createdAt,
       };
 
@@ -343,9 +427,10 @@ function buildDynamoStore(): UserStore {
                 TableName: tableName,
                 Item: {
                   PK: userEmailPk(loweredEmail),
-                  SK: USER_EMAIL_SK,
+                  SK: userEmailRoleSk(data.preferredRole ?? null),
                   entityType: "USER_EMAIL",
                   userId: id,
+                  role: data.preferredRole ?? null,
                   createdAt: now,
                 },
                 ConditionExpression: "attribute_not_exists(PK)",
@@ -382,23 +467,72 @@ function buildDynamoStore(): UserStore {
       return user;
     },
     async getUserByEmail(email) {
+      const users = await this.listActiveUsersByEmail(email);
+      return users[0] ?? null;
+    },
+    async getActiveUserByEmailAndRole(email, role) {
       const loweredEmail = email.toLowerCase();
-      const emailResult = await docClient.send(
+      const mapping = await docClient.send(
         new GetCommand({
           TableName: tableName,
           Key: {
             PK: userEmailPk(loweredEmail),
-            SK: USER_EMAIL_SK,
+            SK: userEmailRoleSk(role),
           },
         }),
       );
 
-      if (!emailResult.Item) {
+      if (!mapping.Item) {
         return null;
       }
 
-      const userId = emailResult.Item.userId as string;
-      return this.getUserById(userId);
+      const userId = mapping.Item.userId as string;
+      const user = await this.getUserById(userId);
+      if (!user || user.deletedAt) {
+        await docClient
+          .send(
+            new DeleteCommand({
+              TableName: tableName,
+              Key: {
+                PK: userEmailPk(loweredEmail),
+                SK: userEmailRoleSk(role),
+              },
+            }),
+          )
+          .catch(() => {
+            // Best-effort cleanup; ignore failures.
+          });
+        return null;
+      }
+
+      return user;
+    },
+  async listActiveUsersByEmail(email: string) {
+      const loweredEmail = email.toLowerCase();
+      const results = await docClient.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: "PK = :pk",
+          ExpressionAttributeValues: {
+            ":pk": userEmailPk(loweredEmail),
+          },
+        }),
+      );
+
+      if (!results.Items || results.Items.length === 0) {
+        return [];
+      }
+
+      const users: User[] = [];
+      for (const item of results.Items) {
+        const userId = item.userId as string;
+        const user = await this.getUserById(userId);
+        if (user && !user.deletedAt) {
+          users.push(user);
+        }
+      }
+
+      return users;
     },
     async getUserById(id) {
       const result = await docClient.send(
@@ -455,6 +589,11 @@ function buildDynamoStore(): UserStore {
       return null;
     },
     async updateUser(id, updates) {
+      const existingUser = await this.getUserById(id);
+      if (!existingUser) {
+        return null;
+      }
+
       const setExpressions: string[] = [];
       const removeExpressions: string[] = [];
       const values: Record<string, unknown> = {
@@ -550,7 +689,67 @@ function buildDynamoStore(): UserStore {
         }),
       );
 
-      return updated.Attributes ? toUser(updated.Attributes) : null;
+      if (!updated.Attributes) {
+        return null;
+      }
+
+      const updatedUser = toUser(updated.Attributes);
+
+      const previousRole = existingUser.preferredRole ?? null;
+      const nextRole = updatedUser.preferredRole ?? null;
+      const previousEmail = existingUser.email.toLowerCase();
+      const nextEmail = updatedUser.email.toLowerCase();
+
+      if (previousEmail !== nextEmail) {
+        await docClient
+          .send(
+            new DeleteCommand({
+              TableName: tableName,
+              Key: {
+                PK: userEmailPk(previousEmail),
+                SK: userEmailRoleSk(previousRole),
+              },
+            }),
+          )
+          .catch(() => {
+            // Mapping might already be missing; ignore cleanup errors.
+          });
+      }
+
+      if (previousEmail !== nextEmail || previousRole !== nextRole) {
+        await docClient
+          .send(
+            new DeleteCommand({
+              TableName: tableName,
+              Key: {
+                PK: userEmailPk(previousEmail),
+                SK: userEmailRoleSk(previousRole),
+              },
+            }),
+          )
+          .catch(() => {
+            // Mapping might already be missing; ignore cleanup errors.
+          });
+
+        if (!updatedUser.deletedAt) {
+          await docClient.send(
+            new PutCommand({
+              TableName: tableName,
+              Item: {
+                PK: userEmailPk(nextEmail),
+                SK: userEmailRoleSk(nextRole),
+                entityType: "USER_EMAIL",
+                userId: updatedUser.id,
+                role: nextRole,
+                createdAt: updatedUser.createdAt,
+              },
+              ConditionExpression: "attribute_not_exists(PK)",
+            }),
+          );
+        }
+      }
+
+      return updatedUser;
     },
     async softDeleteUser(id) {
       const now = new Date().toISOString();
@@ -575,12 +774,14 @@ function buildDynamoStore(): UserStore {
       );
 
       if (updated.Attributes?.email) {
+        const email = (updated.Attributes.email as string).toLowerCase();
+        const roleAttr = (updated.Attributes.preferredRole ?? null) as Role | null | undefined;
         await docClient.send(
           new DeleteCommand({
             TableName: tableName,
             Key: {
-              PK: userEmailPk(updated.Attributes.email as string),
-              SK: USER_EMAIL_SK,
+              PK: userEmailPk(email),
+              SK: userEmailRoleSk(roleAttr),
             },
           }),
         );
@@ -792,6 +993,8 @@ const store: UserStore = isDynamoEnabled() ? buildDynamoStore() : createMemorySt
 export const seedUser = store.seedUser.bind(store);
 export const createUser = store.createUser.bind(store);
 export const getUserByEmail = store.getUserByEmail.bind(store);
+export const getActiveUserByEmailAndRole = store.getActiveUserByEmailAndRole.bind(store);
+export const listActiveUsersByEmail = store.listActiveUsersByEmail.bind(store);
 export const getUserById = store.getUserById.bind(store);
 export const getActiveUserByPhoneAndRole = store.getActiveUserByPhoneAndRole.bind(store);
 export const updateUser = store.updateUser.bind(store);

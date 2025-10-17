@@ -7,9 +7,11 @@ import {
   createUser,
   destroyAllSessionsForUser,
   destroySession,
+  getActiveUserByEmailAndRole,
   getActiveUserByPhoneAndRole,
   getUserByEmail,
   getUserById,
+  listActiveUsersByEmail,
   softDeleteUser,
   updateUser,
 } from "../data/userStore";
@@ -17,6 +19,7 @@ import {
   deletePendingRegistration,
   getPendingRegistrationByEmail,
   getPendingRegistrationById,
+  getPendingRegistrationByEmailAndRole,
   getPendingRegistrationByPhoneAndRole,
   upsertPendingRegistration,
 } from "../data/pendingRegistrationStore";
@@ -44,6 +47,11 @@ const phoneNumberRegex = /^[+0-9()\s-]{7,20}$/;
 function phoneRoleConflictMessage(role: Role) {
   const descriptor = role === "developer" ? "a developer" : "an idea creator";
   return `This phone number is already associated with ${descriptor} account. Each phone number can only be used once per role.`;
+}
+
+function emailRoleConflictMessage(role: Role) {
+  const descriptor = role === "developer" ? "a developer" : "an idea creator";
+  return `This email address is already associated with ${descriptor} account. Each email address can only be used once per role.`;
 }
 
 const registerSchema = z.object({
@@ -188,9 +196,18 @@ router.post("/register", async (req, res) => {
   if (!normalizedPhone) {
     return res.status(400).json({ message: "Phone number is required." });
   }
-  const existing = await getUserByEmail(email);
-  if (existing && !existing.deletedAt) {
-    return res.status(409).json({ message: "An account with that email already exists" });
+
+  const emailConflictUser = await getActiveUserByEmailAndRole(loweredEmail, preferredRole);
+  if (emailConflictUser) {
+    return res.status(409).json({ message: emailRoleConflictMessage(preferredRole) });
+  }
+
+  const emailConflictRegistration = await getPendingRegistrationByEmailAndRole(
+    loweredEmail,
+    preferredRole,
+  );
+  if (emailConflictRegistration && emailConflictRegistration.email !== loweredEmail) {
+    return res.status(409).json({ message: emailRoleConflictMessage(preferredRole) });
   }
 
   const phoneConflictUser = await getActiveUserByPhoneAndRole(normalizedPhone, preferredRole);
@@ -266,8 +283,17 @@ router.post("/login", async (req, res) => {
   }
 
   const { email, password } = parseResult.data;
-  const user = await getUserByEmail(email);
-  if (!user || user.deletedAt) {
+  const candidates = await listActiveUsersByEmail(email);
+  let user: User | null = null;
+  for (const candidate of candidates) {
+    const passwordValid = await argon2.verify(candidate.passwordHash, password);
+    if (passwordValid) {
+      user = candidate;
+      break;
+    }
+  }
+
+  if (!user) {
     if (config.phoneVerificationEnabled) {
       const pending = await getPendingRegistrationByEmail(email);
       if (pending) {
@@ -277,11 +303,6 @@ router.post("/login", async (req, res) => {
         });
       }
     }
-    return res.status(401).json({ message: "Invalid email or password" });
-  }
-
-  const passwordValid = await argon2.verify(user.passwordHash, password);
-  if (!passwordValid) {
     return res.status(401).json({ message: "Invalid email or password" });
   }
 
@@ -470,13 +491,33 @@ router.post("/verification/confirm", async (req, res) => {
       return res.status(404).json({ message: "Registration not found" });
     }
 
-    const existingUser = await getUserByEmail(pending.email);
-    if (existingUser && !existingUser.deletedAt) {
-      await deletePendingRegistration(registrationId);
-      return res.status(409).json({ message: "An account with that email already exists" });
-    }
-
     if (pending.preferredRole) {
+      const emailConflictUser = await getActiveUserByEmailAndRole(
+        pending.email,
+        pending.preferredRole,
+      );
+      if (emailConflictUser) {
+        await deletePendingRegistration(registrationId);
+        return res
+          .status(409)
+          .json({ message: emailRoleConflictMessage(pending.preferredRole) });
+      }
+
+      const emailConflictRegistration = await getPendingRegistrationByEmailAndRole(
+        pending.email,
+        pending.preferredRole,
+      );
+      if (
+        emailConflictRegistration &&
+        emailConflictRegistration.id !== pending.id &&
+        emailConflictRegistration.email !== pending.email
+      ) {
+        await deletePendingRegistration(registrationId);
+        return res
+          .status(409)
+          .json({ message: emailRoleConflictMessage(pending.preferredRole) });
+      }
+
       const phoneConflictUser = await getActiveUserByPhoneAndRole(
         pending.phoneNumber,
         pending.preferredRole,
@@ -499,6 +540,12 @@ router.post("/verification/confirm", async (req, res) => {
         return res
           .status(409)
           .json({ message: phoneRoleConflictMessage(pending.preferredRole) });
+      }
+    } else {
+      const existingUser = await getUserByEmail(pending.email);
+      if (existingUser && !existingUser.deletedAt) {
+        await deletePendingRegistration(registrationId);
+        return res.status(409).json({ message: "An account with that email already exists" });
       }
     }
 
@@ -631,6 +678,16 @@ router.put("/me", requireAuth, async (req, res) => {
       : normalizedPhone && normalizedPhone.length > 0
         ? normalizedPhone
         : null;
+
+  if (resultingRole) {
+    const emailConflictUser = await getActiveUserByEmailAndRole(
+      currentUser.email,
+      resultingRole,
+    );
+    if (emailConflictUser && emailConflictUser.id !== currentUser.id) {
+      return res.status(409).json({ message: emailRoleConflictMessage(resultingRole) });
+    }
+  }
 
   if (resultingPhone && resultingRole) {
     const phoneConflictUser = await getActiveUserByPhoneAndRole(resultingPhone, resultingRole);
