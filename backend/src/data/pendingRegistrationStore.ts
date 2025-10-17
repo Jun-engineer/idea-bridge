@@ -1,5 +1,13 @@
 import { randomUUID } from "crypto";
-import { GetCommand, ScanCommand, TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import {
+  DeleteCommand,
+  GetCommand,
+  QueryCommand,
+  ScanCommand,
+  TransactWriteCommand,
+  UpdateCommand,
+  type QueryCommandOutput,
+} from "@aws-sdk/lib-dynamodb";
 import { getDocumentClient, getTableName, isDynamoEnabled } from "../utils/dynamo";
 import type { Role } from "../types";
 
@@ -30,6 +38,7 @@ interface RegistrationStore {
   upsertRegistration(input: UpsertRegistrationInput): Promise<PendingRegistration>;
   getById(id: string): Promise<PendingRegistration | null>;
   getByEmail(email: string): Promise<PendingRegistration | null>;
+  getByEmailAndRole(email: string, role: Role | null): Promise<PendingRegistration | null>;
   getByPhoneAndRole(phoneNumber: string, role: Role): Promise<PendingRegistration | null>;
   delete(id: string): Promise<void>;
   reset(): Promise<void>;
@@ -37,16 +46,50 @@ interface RegistrationStore {
 
 function createMemoryStore(): RegistrationStore {
   const registrationsById = new Map<string, PendingRegistration>();
-  const registrationIdsByEmail = new Map<string, string>();
+  const registrationIdsByEmail = new Map<string, Set<string>>();
+  const registrationIdsByEmailRole = new Map<string, string>();
   const registrationIdsByPhoneRole = new Map<string, string>();
 
   const phoneRoleKey = (phoneNumber: string, role: Role) => `${phoneNumber}::${role}`;
+  const emailRoleKey = (email: string, role: Role | null | undefined) =>
+    `${email}::${role ?? "none"}`;
+
+  function setEmailMapping(registration: PendingRegistration) {
+    const email = registration.email.toLowerCase();
+    if (!registrationIdsByEmail.has(email)) {
+      registrationIdsByEmail.set(email, new Set());
+    }
+    registrationIdsByEmail.get(email)!.add(registration.id);
+
+    const key = emailRoleKey(email, registration.preferredRole ?? null);
+    registrationIdsByEmailRole.set(key, registration.id);
+  }
+
+  function removeEmailMapping(registration: PendingRegistration) {
+    const email = registration.email.toLowerCase();
+    const ids = registrationIdsByEmail.get(email);
+    if (ids) {
+      ids.delete(registration.id);
+      if (ids.size === 0) {
+        registrationIdsByEmail.delete(email);
+      }
+    }
+
+    const key = emailRoleKey(email, registration.preferredRole ?? null);
+    const existingId = registrationIdsByEmailRole.get(key);
+    if (existingId === registration.id) {
+      registrationIdsByEmailRole.delete(key);
+    }
+  }
 
   function setPhoneRoleMapping(registration: PendingRegistration) {
     if (!registration.phoneNumber || !registration.preferredRole) {
       return;
     }
-    registrationIdsByPhoneRole.set(phoneRoleKey(registration.phoneNumber, registration.preferredRole), registration.id);
+    registrationIdsByPhoneRole.set(
+      phoneRoleKey(registration.phoneNumber, registration.preferredRole),
+      registration.id,
+    );
   }
 
   function removePhoneRoleMapping(registration: PendingRegistration) {
@@ -61,16 +104,15 @@ function createMemoryStore(): RegistrationStore {
   }
 
   return {
-    async upsertRegistration(input) {
+    async upsertRegistration(input: UpsertRegistrationInput) {
       const loweredEmail = input.email.toLowerCase();
-      const existingId = registrationIdsByEmail.get(loweredEmail);
+      const roleKey = emailRoleKey(loweredEmail, input.preferredRole ?? null);
       const now = new Date().toISOString();
 
+      const existingId = registrationIdsByEmailRole.get(roleKey);
       if (existingId) {
         const existing = registrationsById.get(existingId);
-        if (!existing) {
-          registrationIdsByEmail.delete(loweredEmail);
-        } else {
+        if (existing) {
           const updated: PendingRegistration = {
             ...existing,
             passwordHash: input.passwordHash,
@@ -82,10 +124,13 @@ function createMemoryStore(): RegistrationStore {
             updatedAt: now,
           };
           registrationsById.set(existingId, updated);
+          removeEmailMapping(existing);
+          setEmailMapping(updated);
           removePhoneRoleMapping(existing);
           setPhoneRoleMapping(updated);
           return updated;
         }
+        registrationIdsByEmailRole.delete(roleKey);
       }
 
       const id = randomUUID();
@@ -103,20 +148,41 @@ function createMemoryStore(): RegistrationStore {
       };
 
       registrationsById.set(id, created);
-      registrationIdsByEmail.set(loweredEmail, id);
+      setEmailMapping(created);
       setPhoneRoleMapping(created);
       return created;
     },
-    async getById(id) {
+    async getById(id: string) {
       return registrationsById.get(id) ?? null;
     },
-    async getByEmail(email) {
-      const id = registrationIdsByEmail.get(email.toLowerCase());
-      if (!id) return null;
-      return registrationsById.get(id) ?? null;
+    async getByEmail(email: string) {
+      const ids = registrationIdsByEmail.get(email.toLowerCase());
+      if (!ids || ids.size === 0) {
+        return null;
+      }
+      for (const id of ids) {
+        const registration = registrationsById.get(id);
+        if (registration) {
+          return registration;
+        }
+        ids.delete(id);
+      }
+      return null;
     },
-    async getByPhoneAndRole(phoneNumber, role) {
-      if (!phoneNumber || !role) {
+    async getByEmailAndRole(email: string, role: Role | null) {
+      const key = emailRoleKey(email.toLowerCase(), role);
+      const id = registrationIdsByEmailRole.get(key);
+      if (!id) {
+        return null;
+      }
+      const registration = registrationsById.get(id) ?? null;
+      if (!registration) {
+        registrationIdsByEmailRole.delete(key);
+      }
+      return registration;
+    },
+    async getByPhoneAndRole(phoneNumber: string, role: Role) {
+      if (!phoneNumber) {
         return null;
       }
       const key = phoneRoleKey(phoneNumber, role);
@@ -130,26 +196,29 @@ function createMemoryStore(): RegistrationStore {
       }
       return registration;
     },
-    async delete(id) {
+    async delete(id: string) {
       const existing = registrationsById.get(id);
       if (!existing) return;
       registrationsById.delete(id);
-      registrationIdsByEmail.delete(existing.email);
+      removeEmailMapping(existing);
       removePhoneRoleMapping(existing);
     },
     async reset() {
       registrationsById.clear();
       registrationIdsByEmail.clear();
+      registrationIdsByEmailRole.clear();
       registrationIdsByPhoneRole.clear();
     },
   } satisfies RegistrationStore;
 }
 
 const REGISTRATION_ITEM_SK = "REGISTRATION";
-const REGISTRATION_EMAIL_SK = "REGISTRATION_EMAIL";
+const REGISTRATION_EMAIL_ROLE_PREFIX = "REGISTRATION_EMAIL_ROLE#";
 
 const registrationPk = (registrationId: string) => `REGISTRATION#${registrationId}`;
 const registrationEmailPk = (email: string) => `REGISTRATION_EMAIL#${email}`;
+const registrationEmailRoleSk = (role: Role | null | undefined) =>
+  `${REGISTRATION_EMAIL_ROLE_PREFIX}${role ?? "none"}`;
 
 function createDynamoStore(): RegistrationStore {
   const tableName = getTableName();
@@ -159,11 +228,12 @@ function createDynamoStore(): RegistrationStore {
   const docClient = getDocumentClient();
 
   return {
-    async upsertRegistration(input) {
+    async upsertRegistration(input: UpsertRegistrationInput) {
       const loweredEmail = input.email.toLowerCase();
       const nowIso = new Date().toISOString();
+      const role = input.preferredRole ?? null;
 
-      const existing = await this.getByEmail(loweredEmail);
+      const existing = await this.getByEmailAndRole(loweredEmail, role);
       if (existing) {
         await docClient.send(
           new UpdateCommand({
@@ -235,6 +305,7 @@ function createDynamoStore(): RegistrationStore {
                   createdAt,
                   updatedAt: createdAt,
                 },
+                ConditionExpression: "attribute_not_exists(PK)",
               },
             },
             {
@@ -242,9 +313,10 @@ function createDynamoStore(): RegistrationStore {
                 TableName: tableName,
                 Item: {
                   PK: registrationEmailPk(loweredEmail),
-                  SK: REGISTRATION_EMAIL_SK,
+                  SK: registrationEmailRoleSk(role),
                   entityType: "PENDING_REGISTRATION_EMAIL",
                   registrationId: id,
+                  role,
                   createdAt,
                 },
                 ConditionExpression: "attribute_not_exists(PK)",
@@ -256,7 +328,7 @@ function createDynamoStore(): RegistrationStore {
 
       return created;
     },
-    async getById(id) {
+    async getById(id: string) {
       const result = await docClient.send(
         new GetCommand({
           TableName: tableName,
@@ -284,27 +356,65 @@ function createDynamoStore(): RegistrationStore {
         updatedAt: result.Item.updatedAt as string,
       } satisfies PendingRegistration;
     },
-    async getByEmail(email) {
+    async getByEmail(email: string) {
       const loweredEmail = email.toLowerCase();
-      const emailLookup = await docClient.send(
+      const lookup = (await docClient.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: "PK = :pk",
+          ExpressionAttributeValues: {
+            ":pk": registrationEmailPk(loweredEmail),
+          },
+          Limit: 1,
+        }),
+      )) as QueryCommandOutput;
+
+      if (!lookup.Items || lookup.Items.length === 0) {
+        return null;
+      }
+
+      const registrationId = lookup.Items[0].registrationId as string;
+      return this.getById(registrationId);
+    },
+  async getByEmailAndRole(email: string, role: Role | null) {
+      const loweredEmail = email.toLowerCase();
+      const mapping = await docClient.send(
         new GetCommand({
           TableName: tableName,
           Key: {
             PK: registrationEmailPk(loweredEmail),
-            SK: REGISTRATION_EMAIL_SK,
+            SK: registrationEmailRoleSk(role),
           },
         }),
       );
 
-      if (!emailLookup.Item) {
+      if (!mapping.Item) {
         return null;
       }
 
-      const registrationId = emailLookup.Item.registrationId as string;
-      return this.getById(registrationId);
+      const registrationId = mapping.Item.registrationId as string;
+      const registration = await this.getById(registrationId);
+      if (!registration) {
+        await docClient
+          .send(
+            new DeleteCommand({
+              TableName: tableName,
+              Key: {
+                PK: registrationEmailPk(loweredEmail),
+                SK: registrationEmailRoleSk(role),
+              },
+            }),
+          )
+          .catch(() => {
+            // Mapping already removed or concurrent deletion; ignore.
+          });
+        return null;
+      }
+
+      return registration;
     },
-    async getByPhoneAndRole(phoneNumber, role) {
-      if (!phoneNumber || !role) {
+    async getByPhoneAndRole(phoneNumber: string, role: Role) {
+      if (!phoneNumber) {
         return null;
       }
 
@@ -350,7 +460,7 @@ function createDynamoStore(): RegistrationStore {
 
       return null;
     },
-    async delete(id) {
+    async delete(id: string) {
       const existing = await this.getById(id);
       if (!existing) {
         return;
@@ -372,8 +482,8 @@ function createDynamoStore(): RegistrationStore {
               Delete: {
                 TableName: tableName,
                 Key: {
-                  PK: registrationEmailPk(existing.email),
-                  SK: REGISTRATION_EMAIL_SK,
+                  PK: registrationEmailPk(existing.email.toLowerCase()),
+                  SK: registrationEmailRoleSk(existing.preferredRole ?? null),
                 },
               },
             },
@@ -393,6 +503,7 @@ const store: RegistrationStore = isDynamoEnabled() ? createDynamoStore() : creat
 export const upsertPendingRegistration = store.upsertRegistration.bind(store);
 export const getPendingRegistrationById = store.getById.bind(store);
 export const getPendingRegistrationByEmail = store.getByEmail.bind(store);
+export const getPendingRegistrationByEmailAndRole = store.getByEmailAndRole.bind(store);
 export const getPendingRegistrationByPhoneAndRole = store.getByPhoneAndRole.bind(store);
 export const deletePendingRegistration = store.delete.bind(store);
 export const resetPendingRegistrationStore = store.reset.bind(store);
