@@ -26,6 +26,7 @@ interface RegisterPayload {
 interface LoginPayload {
   email: string;
   password: string;
+  role: UserRole;
 }
 
 interface UpdateProfilePayload {
