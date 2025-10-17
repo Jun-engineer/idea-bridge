@@ -126,7 +126,9 @@ describe("auth verification flows", () => {
     expect(registerResponse.status).toBe(201);
     const requestId: string = registerResponse.body.verification.requestId;
 
-    const loginAttempt = await agent.post("/api/auth/login").send({ email, password });
+    const loginAttempt = await agent
+      .post("/api/auth/login")
+      .send({ email, password, role: "developer" });
     expect(loginAttempt.status).toBe(403);
     expect(loginAttempt.body.status).toBe("verification_required");
 

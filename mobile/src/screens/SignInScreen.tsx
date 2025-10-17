@@ -10,30 +10,38 @@ import {
   View,
 } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { Picker } from "@react-native-picker/picker";
 
 import { useAuth } from "../context/AuthContext";
 import type { RootStackParamList } from "../navigation/types";
+import type { UserRole } from "../types";
 
 interface SignInScreenProps extends NativeStackScreenProps<RootStackParamList, "SignIn"> {}
+
+const roleOptions: Array<{ label: string; value: UserRole }> = [
+  { label: "Idea creator", value: "idea-creator" },
+  { label: "Developer / builder", value: "developer" },
+];
 
 const SignInScreen = ({ navigation }: SignInScreenProps) => {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState<UserRole | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = useCallback(async () => {
-    if (!email.trim() || !password) {
-      setError("Email and password are required.");
+    if (!email.trim() || !password || !role) {
+      setError("Email, password, and role are required.");
       return;
     }
 
     try {
       setSubmitting(true);
       setError(null);
-      const result = await login(email.trim(), password);
+      const result = await login(email.trim(), password, role);
       if (result.status === "verification_required") {
         navigation.navigate("VerifyContact", {
           requestId: result.verification.requestId,
@@ -46,7 +54,7 @@ const SignInScreen = ({ navigation }: SignInScreenProps) => {
     } finally {
       setSubmitting(false);
     }
-  }, [email, password, login, navigation]);
+  }, [email, password, role, login, navigation]);
 
   return (
     <KeyboardAvoidingView
@@ -94,6 +102,29 @@ const SignInScreen = ({ navigation }: SignInScreenProps) => {
               <Text style={styles.passwordToggleText}>{showPassword ? "Hide" : "Show"}</Text>
             </TouchableOpacity>
           </View>
+        </View>
+
+        <View style={styles.field}>
+          <Text style={styles.label}>Role</Text>
+          <View style={styles.pickerWrapper}>
+            <Picker
+              enabled={!submitting}
+              selectedValue={role ?? ""}
+              onValueChange={(value) => {
+                if (!value) {
+                  setRole(null);
+                  return;
+                }
+                setRole(value as UserRole);
+              }}
+            >
+              <Picker.Item label="Select your role for this session" value="" key="placeholder" />
+              {roleOptions.map((item) => (
+                <Picker.Item key={item.value} label={item.label} value={item.value} />
+              ))}
+            </Picker>
+          </View>
+          <Text style={styles.helper}>Choose the account role you want to access.</Text>
         </View>
 
         <TouchableOpacity style={[styles.primaryButton, submitting && styles.disabled]} onPress={handleSubmit} disabled={submitting}>
@@ -180,6 +211,12 @@ const styles = StyleSheet.create({
     color: "#2563eb",
     fontWeight: "600",
   },
+  pickerWrapper: {
+    backgroundColor: "#ffffff",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+  },
   primaryButton: {
     backgroundColor: "#1f2937",
     paddingVertical: 16,
@@ -202,6 +239,11 @@ const styles = StyleSheet.create({
   errorText: {
     marginTop: 12,
     color: "#b91c1c",
+  },
+  helper: {
+    marginTop: 6,
+    fontSize: 12,
+    color: "#6b7280",
   },
   disabled: {
     opacity: 0.7,

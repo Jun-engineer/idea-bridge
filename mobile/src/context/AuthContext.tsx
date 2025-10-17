@@ -37,7 +37,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
   pendingVerification: VerificationChallenge | null;
-  login: (email: string, password: string) => Promise<AuthResult>;
+  login: (email: string, password: string, role: UserRole) => Promise<AuthResult>;
   register: (
     input: {
       email: string;
@@ -147,8 +147,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const login = useCallback(
-    async (email: string, password: string) => {
-      const result = await loginUser({ email, password });
+    async (email: string, password: string, role: UserRole) => {
+      const result = await loginUser({ email, password, role });
       return handleAuthResult(result);
     },
     [handleAuthResult],

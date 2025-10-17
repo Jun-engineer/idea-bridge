@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate, Link, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import type { UserRole } from "../types/models";
 
 export function SignInPage() {
   const { login, user } = useAuth();
@@ -18,16 +19,19 @@ export function SignInPage() {
     const formData = new FormData(event.currentTarget);
     const email = String(formData.get("email") ?? "").trim();
     const password = String(formData.get("password") ?? "");
+    const roleValue = formData.get("role");
 
-    if (!email || !password) {
-      setError("Email and password are required.");
+    if (!email || !password || typeof roleValue !== "string" || !roleValue) {
+      setError("Email, password, and role are required.");
       return;
     }
+
+    const role = roleValue as UserRole;
 
     try {
       setSubmitting(true);
       setError(null);
-      const result = await login(email, password);
+      const result = await login(email, password, role);
       if (result.status === "authenticated") {
         navigate("/");
       } else {
@@ -76,6 +80,16 @@ export function SignInPage() {
               {showPassword ? "Hide" : "Show"}
             </button>
           </div>
+        </label>
+        <label>
+          Role
+          <select name="role" defaultValue="" required disabled={submitting}>
+            <option value="" disabled>
+              Select your role for this session
+            </option>
+            <option value="idea-creator">Idea creator</option>
+            <option value="developer">Developer / builder</option>
+          </select>
         </label>
         <button className="button" type="submit" disabled={submitting}>
           {submitting ? "Signing in…" : "Sign in"}

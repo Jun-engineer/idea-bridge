@@ -11,13 +11,11 @@ import {
   getActiveUserByPhoneAndRole,
   getUserByEmail,
   getUserById,
-  listActiveUsersByEmail,
   softDeleteUser,
   updateUser,
 } from "../data/userStore";
 import {
   deletePendingRegistration,
-  getPendingRegistrationByEmail,
   getPendingRegistrationById,
   getPendingRegistrationByEmailAndRole,
   getPendingRegistrationByPhoneAndRole,
@@ -69,6 +67,7 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
+  role: roleEnum,
 });
 
 const updateSchema = z.object({
@@ -282,20 +281,15 @@ router.post("/login", async (req, res) => {
     return res.status(400).json({ errors: parseResult.error.flatten() });
   }
 
-  const { email, password } = parseResult.data;
-  const candidates = await listActiveUsersByEmail(email);
-  let user: User | null = null;
-  for (const candidate of candidates) {
-    const passwordValid = await argon2.verify(candidate.passwordHash, password);
-    if (passwordValid) {
-      user = candidate;
-      break;
-    }
-  }
+  const { email, password, role } = parseResult.data;
+  const loweredEmail = email.toLowerCase();
+  const user = await getActiveUserByEmailAndRole(loweredEmail, role);
 
-  if (!user) {
+  const passwordValid = user ? await argon2.verify(user.passwordHash, password) : false;
+
+  if (!user || !passwordValid) {
     if (config.phoneVerificationEnabled) {
-      const pending = await getPendingRegistrationByEmail(email);
+      const pending = await getPendingRegistrationByEmailAndRole(loweredEmail, role);
       if (pending) {
         return res.status(403).json({
           status: "verification_required",
@@ -303,7 +297,7 @@ router.post("/login", async (req, res) => {
         });
       }
     }
-    return res.status(401).json({ message: "Invalid email or password" });
+    return res.status(401).json({ message: "Invalid email, role, or password" });
   }
 
   if (config.phoneVerificationEnabled && user.pendingVerificationMethod === "phone") {
