@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { GetCommand, TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, ScanCommand, TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { getDocumentClient, getTableName, isDynamoEnabled } from "../utils/dynamo";
 import type { Role } from "../types";
 
@@ -30,6 +30,7 @@ interface RegistrationStore {
   upsertRegistration(input: UpsertRegistrationInput): Promise<PendingRegistration>;
   getById(id: string): Promise<PendingRegistration | null>;
   getByEmail(email: string): Promise<PendingRegistration | null>;
+  getByPhoneAndRole(phoneNumber: string, role: Role): Promise<PendingRegistration | null>;
   delete(id: string): Promise<void>;
   reset(): Promise<void>;
 }
@@ -37,6 +38,27 @@ interface RegistrationStore {
 function createMemoryStore(): RegistrationStore {
   const registrationsById = new Map<string, PendingRegistration>();
   const registrationIdsByEmail = new Map<string, string>();
+  const registrationIdsByPhoneRole = new Map<string, string>();
+
+  const phoneRoleKey = (phoneNumber: string, role: Role) => `${phoneNumber}::${role}`;
+
+  function setPhoneRoleMapping(registration: PendingRegistration) {
+    if (!registration.phoneNumber || !registration.preferredRole) {
+      return;
+    }
+    registrationIdsByPhoneRole.set(phoneRoleKey(registration.phoneNumber, registration.preferredRole), registration.id);
+  }
+
+  function removePhoneRoleMapping(registration: PendingRegistration) {
+    if (!registration.phoneNumber || !registration.preferredRole) {
+      return;
+    }
+    const key = phoneRoleKey(registration.phoneNumber, registration.preferredRole);
+    const existingId = registrationIdsByPhoneRole.get(key);
+    if (existingId === registration.id) {
+      registrationIdsByPhoneRole.delete(key);
+    }
+  }
 
   return {
     async upsertRegistration(input) {
@@ -60,6 +82,8 @@ function createMemoryStore(): RegistrationStore {
             updatedAt: now,
           };
           registrationsById.set(existingId, updated);
+          removePhoneRoleMapping(existing);
+          setPhoneRoleMapping(updated);
           return updated;
         }
       }
@@ -80,6 +104,7 @@ function createMemoryStore(): RegistrationStore {
 
       registrationsById.set(id, created);
       registrationIdsByEmail.set(loweredEmail, id);
+      setPhoneRoleMapping(created);
       return created;
     },
     async getById(id) {
@@ -90,15 +115,32 @@ function createMemoryStore(): RegistrationStore {
       if (!id) return null;
       return registrationsById.get(id) ?? null;
     },
+    async getByPhoneAndRole(phoneNumber, role) {
+      if (!phoneNumber || !role) {
+        return null;
+      }
+      const key = phoneRoleKey(phoneNumber, role);
+      const id = registrationIdsByPhoneRole.get(key);
+      if (!id) {
+        return null;
+      }
+      const registration = registrationsById.get(id) ?? null;
+      if (!registration) {
+        registrationIdsByPhoneRole.delete(key);
+      }
+      return registration;
+    },
     async delete(id) {
       const existing = registrationsById.get(id);
       if (!existing) return;
       registrationsById.delete(id);
       registrationIdsByEmail.delete(existing.email);
+      removePhoneRoleMapping(existing);
     },
     async reset() {
       registrationsById.clear();
       registrationIdsByEmail.clear();
+      registrationIdsByPhoneRole.clear();
     },
   } satisfies RegistrationStore;
 }
@@ -261,6 +303,53 @@ function createDynamoStore(): RegistrationStore {
       const registrationId = emailLookup.Item.registrationId as string;
       return this.getById(registrationId);
     },
+    async getByPhoneAndRole(phoneNumber, role) {
+      if (!phoneNumber || !role) {
+        return null;
+      }
+
+      let lastEvaluatedKey: Record<string, unknown> | undefined;
+      do {
+        const scanResult = await docClient.send(
+          new ScanCommand({
+            TableName: tableName,
+            FilterExpression:
+              "#entityType = :entityType AND #phoneNumber = :phone AND #preferredRole = :role",
+            ExpressionAttributeNames: {
+              "#entityType": "entityType",
+              "#phoneNumber": "phoneNumber",
+              "#preferredRole": "preferredRole",
+            },
+            ExpressionAttributeValues: {
+              ":entityType": "PENDING_REGISTRATION",
+              ":phone": phoneNumber,
+              ":role": role,
+            },
+            ExclusiveStartKey: lastEvaluatedKey,
+          }),
+        );
+
+        if (scanResult.Items && scanResult.Items.length > 0) {
+          const item = scanResult.Items[0];
+          return {
+            id: item.registrationId as string,
+            email: item.email as string,
+            passwordHash: item.passwordHash as string,
+            displayName: item.displayName as string,
+            bio: item.bio ?? undefined,
+            preferredRole: item.preferredRole ?? undefined,
+            roleChangeEligibleAt: item.roleChangeEligibleAt as string,
+            phoneNumber: item.phoneNumber as string,
+            createdAt: item.createdAt as string,
+            updatedAt: item.updatedAt as string,
+          } satisfies PendingRegistration;
+        }
+
+        lastEvaluatedKey = scanResult.LastEvaluatedKey as Record<string, unknown> | undefined;
+      } while (lastEvaluatedKey);
+
+      return null;
+    },
     async delete(id) {
       const existing = await this.getById(id);
       if (!existing) {
@@ -304,5 +393,6 @@ const store: RegistrationStore = isDynamoEnabled() ? createDynamoStore() : creat
 export const upsertPendingRegistration = store.upsertRegistration.bind(store);
 export const getPendingRegistrationById = store.getById.bind(store);
 export const getPendingRegistrationByEmail = store.getByEmail.bind(store);
+export const getPendingRegistrationByPhoneAndRole = store.getByPhoneAndRole.bind(store);
 export const deletePendingRegistration = store.delete.bind(store);
 export const resetPendingRegistrationStore = store.reset.bind(store);

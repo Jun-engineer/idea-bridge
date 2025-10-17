@@ -7,6 +7,7 @@ import {
   createUser,
   destroyAllSessionsForUser,
   destroySession,
+  getActiveUserByPhoneAndRole,
   getUserByEmail,
   getUserById,
   softDeleteUser,
@@ -16,9 +17,10 @@ import {
   deletePendingRegistration,
   getPendingRegistrationByEmail,
   getPendingRegistrationById,
+  getPendingRegistrationByPhoneAndRole,
   upsertPendingRegistration,
 } from "../data/pendingRegistrationStore";
-import type { User } from "../types";
+import type { Role, User } from "../types";
 import { requireAuth } from "../middleware/auth";
 import { signAccessToken } from "../utils/jwt";
 import { maskPhone } from "../utils/masking";
@@ -38,6 +40,11 @@ const roleChangeCooldownMs = config.roleChangeCooldownSeconds * 1000;
 
 const roleEnum = z.enum(["idea-creator", "developer"]);
 const phoneNumberRegex = /^[+0-9()\s-]{7,20}$/;
+
+function phoneRoleConflictMessage(role: Role) {
+  const descriptor = role === "developer" ? "a developer" : "an idea creator";
+  return `This phone number is already associated with ${descriptor} account. Each phone number can only be used once per role.`;
+}
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -169,6 +176,7 @@ router.post("/register", async (req, res) => {
   }
 
   const { email, password, displayName, bio, preferredRole, phoneNumber } = parseResult.data;
+  const loweredEmail = email.toLowerCase();
   let normalizedPhone: string;
   try {
     normalizedPhone = sanitizePhoneNumberInput(phoneNumber, { requireCountryCode: true }) ?? "";
@@ -183,6 +191,19 @@ router.post("/register", async (req, res) => {
   const existing = await getUserByEmail(email);
   if (existing && !existing.deletedAt) {
     return res.status(409).json({ message: "An account with that email already exists" });
+  }
+
+  const phoneConflictUser = await getActiveUserByPhoneAndRole(normalizedPhone, preferredRole);
+  if (phoneConflictUser) {
+    return res.status(409).json({ message: phoneRoleConflictMessage(preferredRole) });
+  }
+
+  const phoneConflictRegistration = await getPendingRegistrationByPhoneAndRole(
+    normalizedPhone,
+    preferredRole,
+  );
+  if (phoneConflictRegistration && phoneConflictRegistration.email !== loweredEmail) {
+    return res.status(409).json({ message: phoneRoleConflictMessage(preferredRole) });
   }
 
   const passwordHash = await argon2.hash(password);
@@ -455,6 +476,32 @@ router.post("/verification/confirm", async (req, res) => {
       return res.status(409).json({ message: "An account with that email already exists" });
     }
 
+    if (pending.preferredRole) {
+      const phoneConflictUser = await getActiveUserByPhoneAndRole(
+        pending.phoneNumber,
+        pending.preferredRole,
+      );
+      if (phoneConflictUser && phoneConflictUser.email !== pending.email) {
+        return res
+          .status(409)
+          .json({ message: phoneRoleConflictMessage(pending.preferredRole) });
+      }
+
+      const phoneConflictRegistration = await getPendingRegistrationByPhoneAndRole(
+        pending.phoneNumber,
+        pending.preferredRole,
+      );
+      if (
+        phoneConflictRegistration &&
+        phoneConflictRegistration.id !== pending.id &&
+        phoneConflictRegistration.email !== pending.email
+      ) {
+        return res
+          .status(409)
+          .json({ message: phoneRoleConflictMessage(pending.preferredRole) });
+      }
+    }
+
     const newUser = await createUser({
       email: pending.email,
       passwordHash: pending.passwordHash,
@@ -573,6 +620,33 @@ router.put("/me", requireAuth, async (req, res) => {
       patch.phoneNumber = normalizedPhone;
       patch.phoneVerified = false;
       patch.pendingVerificationMethod = config.phoneVerificationEnabled ? "phone" : null;
+    }
+  }
+
+  const resultingRole =
+    patch.preferredRole !== undefined ? patch.preferredRole : currentUser.preferredRole ?? null;
+  const resultingPhone =
+    normalizedPhone === undefined
+      ? currentUser.phoneNumber ?? null
+      : normalizedPhone && normalizedPhone.length > 0
+        ? normalizedPhone
+        : null;
+
+  if (resultingPhone && resultingRole) {
+    const phoneConflictUser = await getActiveUserByPhoneAndRole(resultingPhone, resultingRole);
+    if (phoneConflictUser && phoneConflictUser.id !== currentUser.id) {
+      return res.status(409).json({ message: phoneRoleConflictMessage(resultingRole) });
+    }
+
+    const phoneConflictRegistration = await getPendingRegistrationByPhoneAndRole(
+      resultingPhone,
+      resultingRole,
+    );
+    if (
+      phoneConflictRegistration &&
+      phoneConflictRegistration.email !== currentUser.email.toLowerCase()
+    ) {
+      return res.status(409).json({ message: phoneRoleConflictMessage(resultingRole) });
     }
   }
 
