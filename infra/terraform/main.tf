@@ -526,6 +526,21 @@ data "aws_iam_policy_document" "github_actions_permissions" {
   }
 
   statement {
+    sid    = "AcmManage"
+    effect = "Allow"
+    actions = [
+      "acm:RequestCertificate",
+      "acm:DescribeCertificate",
+      "acm:DeleteCertificate",
+      "acm:AddTagsToCertificate",
+      "acm:RemoveTagsFromCertificate",
+      "acm:ListTagsForCertificate",
+      "acm:ListCertificates"
+    ]
+    resources = ["*"]
+  }
+
+  statement {
     sid    = "LambdaManage"
     effect = "Allow"
     actions = [
@@ -582,6 +597,22 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     actions = [
       "sns:SetSMSAttributes",
       "sns:GetSMSAttributes"
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "Route53Manage"
+    effect = "Allow"
+    actions = [
+      "route53:CreateHostedZone",
+      "route53:DeleteHostedZone",
+      "route53:GetHostedZone",
+      "route53:ListHostedZones",
+      "route53:ChangeResourceRecordSets",
+      "route53:ListResourceRecordSets",
+      "route53:ListTagsForResource",
+      "route53:ChangeTagsForResource"
     ]
     resources = ["*"]
   }
