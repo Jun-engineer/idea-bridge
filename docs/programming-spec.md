@@ -9,7 +9,6 @@ Provide consistent engineering guidelines across the monorepo so that new featur
 | Layer | Stack |
 | --- | --- |
 | Web frontend | React 18, Vite, TypeScript, React Router |
-| Mobile | Expo SDK 54, React Native, TypeScript, Native Stack Navigation |
 | Backend API | Node.js 18, Express, Zod, @vendia/serverless-express |
 | Database | Prisma (PostgreSQL target), optional DynamoDB adapters |
 | Infrastructure | Terraform, AWS (CloudFront, S3, Lambda, API Gateway, DynamoDB, SNS) |
@@ -18,16 +17,14 @@ Provide consistent engineering guidelines across the monorepo so that new featur
 ## 3. Repository Conventions
 - **TypeScript everywhere.** Avoid `.js` files except for generated output or tooling entry points.
 - **Module boundaries:**
-  - `frontend/src/api` & `mobile/src/api` should expose typed client helpers only; do not embed UI logic.
+  - `frontend/src/api` should expose typed client helpers only; do not embed UI logic.
   - `backend/src/routes` coordinates request validation and delegates to services. Business rules live in `backend/src/services`.
   - `backend/src/data` is the persistence seam. When swapping in Prisma, only this layer changes.
 - **Imports:** use relative paths within each package; avoid path aliases to keep tsconfig simple.
 - **State management:**
   - Web: React Context for auth, local component state for everything else.
-  - Mobile: React Context + hooks; avoid Redux unless a cross-app store arises.
 - **Styling:**
   - Web: utility classes in `App.css` + component-scoped CSS modules.
-  - Mobile: `StyleSheet.create` with semantic names; keep styles near components.
 - **Commit messages:** Conventional (`feat:`, `fix:`, `docs:`) when contributing back to the repo.
 
 ## 4. Coding Standards
@@ -35,17 +32,17 @@ Provide consistent engineering guidelines across the monorepo so that new featur
 - Prefer `async/await`; never mix with `.then()` in the same block.
 - Use Zod for runtime validation at API boundaries; throw typed errors from services.
 - Reuse shared utilities:
-  - Phone parsing/formatting -> `mobile/src/utils/phone.ts` & mirrored logic in the backend helper.
-  - Auth token management -> `mobile/src/api/http.ts` & `frontend/src/api/http.ts` (once unified).
+  - Phone parsing/formatting -> consolidate helpers under `frontend/src/utils/phone.ts` and the backend counterpart.
+  - Auth token management -> `frontend/src/api/http.ts` (sync with backend middleware).
 - Error handling:
   - Backend responds with JSON bodies `{ error: string }` and appropriate HTTP status codes.
-  - Frontend/mobile display toast or inline error messages; never swallow errors silently.
+  - Frontend displays toast or inline error messages; never swallow errors silently.
 
 ## 5. Testing Strategy
 - **Backend:**
   - Jest + Supertest for route-level tests (`backend/tests`).
   - Use in-memory stores for deterministic behaviour; seed known fixtures per test file.
-- **Frontend / Mobile:**
+- **Frontend:**
   - Lightweight unit tests using React Testing Library (planned).
   - Snapshot coverage for key components once UI stabilises.
   - Manual smoke runs recorded in QA checklist per release.
@@ -81,6 +78,6 @@ Provide consistent engineering guidelines across the monorepo so that new featur
 
 ## 10. Future Enhancements
 - Shared package for domain types (`packages/domain`).
-- Component library with design tokens across web & mobile.
+- Component library with design tokens across web.
 - Automated accessibility tests using Axe & Detox.
 - Storybook for visual regression alignment.

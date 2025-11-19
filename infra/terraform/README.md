@@ -61,6 +61,7 @@ Create `terraform.tfvars` (not committed) with the sensitive values:
 jwt_secret                  = "super-secret-change-me"
 session_cookie_name         = "idea_bridge_session"
 cors_allowed_origin         = "https://app.example.com"
+frontend_domain_name        = "ideabridgehub.net"
 lambda_package_path         = "../../backend/idea-bridge-backend.zip"
 aws_sns_sender_id           = "IdeaBridge"
 aws_sns_origination_number  = "+81XXXXXXXXXX"
@@ -69,7 +70,7 @@ aws_sns_monthly_spend_limit = "1"
 
 ## Notes
 - The configuration enforces an account precondition; running against another account will fail.
-- CloudFront uses the default certificate and domain. Add ACM/Route53 resources if you want a custom domain.
+- Setting `frontend_domain_name` provisions Route53, issues an ACM certificate in us-east-1, and maps the CloudFront distribution to that apex domain. Leave it blank to keep the default CloudFront hostname.
 - DynamoDB is provisioned but the current backend still uses in-memory stores. Update the repository’s data access layer before relying on DynamoDB in production.
 - Secrets are passed directly through environment variables for brevity. Consider migrating them to AWS Secrets Manager or SSM Parameter Store and referencing them via Lambda environment variables or extensions.
 - Monthly SNS spend limit defaults to "1" (sandbox friendly). Increase only after

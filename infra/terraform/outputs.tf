@@ -8,6 +8,11 @@ output "cloudfront_domain_name" {
   value       = aws_cloudfront_distribution.frontend.domain_name
 }
 
+output "frontend_custom_domain" {
+  description = "Custom domain configured for the CloudFront distribution (blank when disabled)."
+  value       = local.custom_domain_enabled ? local.custom_domain : ""
+}
+
 output "cloudfront_distribution_id" {
   description = "CloudFront distribution ID for cache invalidations."
   value       = aws_cloudfront_distribution.frontend.id

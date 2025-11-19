@@ -65,6 +65,7 @@ jobs:
         run: |
           cat <<'EOF' > terraform.auto.tfvars
           jwt_secret = "${{ secrets.JWT_SECRET }}"
+          frontend_domain_name = "${{ secrets.FRONTEND_DOMAIN_NAME }}"
           session_cookie_name = "${{ secrets.SESSION_COOKIE_NAME }}"
           cors_allowed_origin = "${{ secrets.CORS_ALLOWED_ORIGIN }}"
           aws_sns_sender_id = "${{ secrets.AWS_SNS_SENDER_ID }}"
