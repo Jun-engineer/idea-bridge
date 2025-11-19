@@ -14,6 +14,8 @@ locals {
   cloudfront_origin_request_policy_all_viewer_no_host = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
   cloudfront_distribution_arn_pattern                 = "arn:${data.aws_partition.current.partition}:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/*"
   cloudfront_oai_arn_pattern                          = "arn:${data.aws_partition.current.partition}:cloudfront::${data.aws_caller_identity.current.account_id}:origin-access-identity/*"
+  custom_domain                                       = trimspace(var.frontend_domain_name)
+  custom_domain_enabled                               = local.custom_domain != ""
   tags = {
     Project     = local.project
     Environment = local.env
@@ -89,9 +91,55 @@ resource "aws_s3_bucket_policy" "frontend" {
   })
 }
 
+resource "aws_route53_zone" "frontend" {
+  count = local.custom_domain_enabled ? 1 : 0
+
+  name = local.custom_domain
+  tags = local.tags
+}
+
+resource "aws_acm_certificate" "frontend" {
+  count = local.custom_domain_enabled ? 1 : 0
+
+  provider          = aws.us_east_1
+  domain_name       = local.custom_domain
+  validation_method = "DNS"
+  tags              = local.tags
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_route53_record" "frontend_certificate_validation" {
+  for_each = local.custom_domain_enabled ? {
+    for dvo in aws_acm_certificate.frontend[0].domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  } : {}
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = aws_route53_zone.frontend[0].zone_id
+}
+
+resource "aws_acm_certificate_validation" "frontend" {
+  count = local.custom_domain_enabled ? 1 : 0
+
+  provider                = aws.us_east_1
+  certificate_arn         = aws_acm_certificate.frontend[0].arn
+  validation_record_fqdns = [for _, record in aws_route53_record.frontend_certificate_validation : record.fqdn]
+}
+
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   default_root_object = "index.html"
+  aliases             = local.custom_domain_enabled ? [local.custom_domain] : []
 
   origin {
     domain_name = aws_s3_bucket.frontend.bucket_regional_domain_name
@@ -161,12 +209,28 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    acm_certificate_arn            = local.custom_domain_enabled ? try(aws_acm_certificate_validation.frontend[0].certificate_arn, null) : null
+    ssl_support_method             = local.custom_domain_enabled ? "sni-only" : null
+    minimum_protocol_version       = local.custom_domain_enabled ? "TLSv1.2_2021" : null
+    cloudfront_default_certificate = local.custom_domain_enabled ? false : true
   }
 
   price_class = "PriceClass_200"
 
   tags = local.tags
+}
+
+resource "aws_route53_record" "frontend_alias" {
+  count   = local.custom_domain_enabled ? 1 : 0
+  zone_id = aws_route53_zone.frontend[0].zone_id
+  name    = local.custom_domain
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.frontend.domain_name
+    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
+    evaluate_target_health = false
+  }
 }
 
 resource "aws_dynamodb_table" "app" {

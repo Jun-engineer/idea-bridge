@@ -57,6 +57,12 @@ variable "cors_allowed_origin" {
   default     = "https://example.com"
 }
 
+variable "frontend_domain_name" {
+  description = "Custom domain (apex) for the CloudFront distribution. Leave blank to use the default CloudFront hostname."
+  type        = string
+  default     = ""
+}
+
 variable "jwt_secret" {
   description = "JWT secret used by the backend."
   type        = string

@@ -5,8 +5,6 @@ node_modules/
 dist/
 backend/dist/
 frontend/dist/
-mobile/.expo/
-mobile/dist/
 
 # Logs and runtime artifacts
 .idea-bridge/logs/
@@ -18,7 +16,6 @@ logs/
 *.env
 backend/.env
 frontend/.env
-mobile/.env
 
 # Temporary files
 .DS_Store
@@ -35,7 +32,6 @@ pnpm-debug.log*
 coverage/
 
 # Expo / React Native caches
-mobile/.expo-shared/
 .expo/
 
 # VS Code

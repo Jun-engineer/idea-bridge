@@ -1,6 +1,6 @@
 # IdeaBridge Monorepo
 
-IdeaBridge is a full-stack starter that turns the product design into runnable frontend, backend, mobile, and infrastructure scaffolds. It supports idea creators who publish app concepts and developers who respond with working implementations, spanning web, native, and serverless deployment targets.
+IdeaBridge is a full-stack starter that turns the product design into runnable frontend, backend, and infrastructure scaffolds. It supports idea creators who publish app concepts and developers who respond with working implementations, spanning web and serverless deployment targets.
 
 ## Project structure
 
@@ -9,7 +9,6 @@ IdeaBridge is a full-stack starter that turns the product design into runnable f
 ├── frontend/         # Vite + React (TypeScript) single-page app
 ├── backend/          # Express + TypeScript API with in-memory mock data
 ├── database/         # Prisma schema and tooling for PostgreSQL
-├── mobile/           # Expo + React Native app for iOS and Android
 ├── infra/            # Terraform + auxiliary scripts for AWS
 └── docs/             # Product & technical design documents (markdown + draw.io)
 ```
@@ -18,7 +17,7 @@ IdeaBridge is a full-stack starter that turns the product design into runnable f
 - React 18 + TypeScript + Vite.
 - React Router pages for the idea feed, idea detail, submission forms, profiles, verification, and account management.
 - Mock data mirrors the backend seed so UI can run without the API during early development.
-- Shared UI primitives (cards, layout, navigation) align with the mobile app for a consistent experience.
+- Shared UI primitives (cards, layout, navigation) keep the experience consistent across the site.
 
 ### Backend (`backend/`)
 - Express REST API with TypeScript and Zod request validation.
@@ -37,12 +36,6 @@ IdeaBridge is a full-stack starter that turns the product design into runnable f
 - Models cover idea creators, developers, ideas, app submissions, screenshots, likes, bookmarks, and verification challenges.
 - Ready for migrations and Prisma Client generation.
 
-### Mobile (`mobile/`)
-- Expo SDK 54 + React Native with TypeScript.
-- Native stack navigation that mirrors the web experience (idea feed, detail, submissions, profiles, account settings).
-- Phone number capture with a country picker, automatic trunk-prefix trimming, and verification flows identical to the web app.
-- Password inputs support visibility toggles and validation messaging consistent with the frontend.
-- Re-uses the backend REST API with graceful fallbacks to bundled mock data when offline, and auto-detects reachable API hosts when `EXPO_PUBLIC_API_BASE_URL` is not provided.
 
 ## Documentation
 
@@ -51,7 +44,6 @@ Authoritative reference material lives in the `docs/` folder:
 - `docs/database-design.md` – logical & physical data model plus migration guidance.
 - `docs/programming-spec.md` – coding conventions, module boundaries, and testing strategy.
 - `docs/aws-infrastructure.md` – AWS resource blueprint with Terraform mapping.
-- `docs/mobile-design.md` – UX flows, screen inventory, and native implementation notes.
 - `docs/aws-architecture.drawio` – AWS 2025 icon architecture diagram (open in diagrams.net).
 - `docs/auth-architecture.md` + `docs/auth-requirements.md` – detailed authentication flows.
 - `docs/serverless-deployment.md` – operational walkthrough for the Lambda/API Gateway stack.
@@ -62,7 +54,6 @@ Authoritative reference material lives in the `docs/` folder:
 - Node.js 18.x (upgrade to 20+ when ready for the latest Vite/Prisma features).
 - npm 9+
 - PostgreSQL 14+ (or any PostgreSQL-compatible database) for the real database.
-- Expo CLI (`npm install --global expo-cli`) for running the mobile app locally.
 
 ### Frontend dev server
 ```bash
@@ -104,23 +95,6 @@ npm run generate
 - Prisma is configured for PostgreSQL; adjust `schema.prisma` and `DATABASE_URL` for other providers.
 - Seed scripts are deferred until DynamoDB/Postgres persistence replaces the in-memory stores.
 
-### Mobile app (iOS / Android / Web preview)
-```bash
-cd mobile
-npm install
-npm start             # defaults to expo start --localhost via scripts/start-expo.cjs
-# Press i for iOS simulator, a for Android emulator, or run on a physical device via Expo Go.
-```
-
-- Base URL resolution automatically probes common hosts (Expo tunnel, simulator loopback, LAN IP, emulator `10.0.2.2`). Override with `EXPO_PUBLIC_API_BASE_URL` to pin a specific API.
-- The mobile client bundles demo data so the UI still works when the API is offline.
-- Use the repository-level helper for background Expo sessions:
-  ```bash
-  ./mobile.sh start        # launches Expo with cached adb port forwarding
-  ./mobile.sh start -- --lan
-  ./mobile.sh stop
-  ```
-
 ## Authentication & Verification
 - Registration and login issue short-lived session tokens backed by HTTP-only cookies.
 - New accounts must confirm a phone number via one-time SMS code before accessing the app.
@@ -150,4 +124,4 @@ npm start             # defaults to expo start --localhost via scripts/start-exp
 - Explore the [AWS serverless deployment guide](docs/serverless-deployment.md) and architecture diagram (`docs/aws-architecture.drawio`) to run the stack on Lambda, API Gateway, S3, and CloudFront without managing servers or VPCs.
 
 ## Design notes
-This repository follows the attached IdeaBridge product document: permanent idea listings, app submissions tied to ideas, distinct creator/developer profiles, and optional statistics. The current scaffolds keep the scope light while leaving clear seams for future expansion across web, native, and infrastructure layers.
+This repository follows the attached IdeaBridge product document: permanent idea listings, app submissions tied to ideas, distinct creator/developer profiles, and optional statistics. The current scaffolds keep the scope light while leaving clear seams for future expansion across web and infrastructure layers.
